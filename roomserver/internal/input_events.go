@@ -305,12 +305,11 @@ func buildInviteStrippedState(
 	if err != nil {
 		return nil, err
 	}
-	inputEventUnwrapped := input.Event.Unwrap()
 	inviteState := []gomatrixserverlib.InviteV2StrippedState{
-		gomatrixserverlib.NewInviteV2StrippedState(&inputEventUnwrapped),
+		gomatrixserverlib.NewInviteV2StrippedState(&input.Event.Event),
 	}
 
-	stateEvents = append(stateEvents, types.Event{Event: inputEventUnwrapped})
+	// stateEvents = append(stateEvents, types.Event{Event: input.Event.Unwrap()})
 	for _, event := range stateEvents {
 		inviteState = append(inviteState, gomatrixserverlib.NewInviteV2StrippedState(&event.Event))
 	}
