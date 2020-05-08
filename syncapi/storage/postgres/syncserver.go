@@ -584,6 +584,8 @@ func (d *SyncServerDatasource) getResponseWithPDUsForCompleteSync(
 			return
 		}
 
+		fmt.Printf("Problem room: %s\n", roomID)
+
 		// Retrieve the backward topology position, i.e. the position of the
 		// oldest event in the room's topology.
 		var backwardTopologyPos, backwardStreamPos types.StreamPosition
