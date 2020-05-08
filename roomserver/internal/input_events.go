@@ -314,7 +314,6 @@ func buildInviteStrippedState(
 	for _, event := range stateEvents {
 		inviteState = append(inviteState, gomatrixserverlib.NewInviteV2StrippedState(&event.Event))
 	}
-	fmt.Printf("INVITE STATE: %+v\n \n", inviteState)
 
 	return inviteState, nil
 }
