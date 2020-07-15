@@ -33,9 +33,7 @@ import (
 	"github.com/matrix-org/dendrite/cmd/dendrite-demo-yggdrasil/convert"
 	"github.com/matrix-org/gomatrixserverlib"
 
-	yggdrasiladmin "github.com/yggdrasil-network/yggdrasil-go/src/admin"
 	yggdrasilconfig "github.com/yggdrasil-network/yggdrasil-go/src/config"
-	"github.com/yggdrasil-network/yggdrasil-go/src/crypto"
 	yggdrasilmulticast "github.com/yggdrasil-network/yggdrasil-go/src/multicast"
 	"github.com/yggdrasil-network/yggdrasil-go/src/yggdrasil"
 
@@ -46,10 +44,8 @@ type Node struct {
 	core       *yggdrasil.Core
 	config     *yggdrasilconfig.NodeConfig
 	state      *yggdrasilconfig.NodeState
-	admin      *yggdrasiladmin.AdminSocket
 	multicast  *yggdrasilmulticast.Multicast
 	log        *gologme.Logger
-	packetConn *yggdrasil.PacketConn
 	listener   quic.Listener
 	tlsConfig  *tls.Config
 	quicConfig *quic.Config
@@ -85,12 +81,11 @@ func Setup(instanceName, storageDirectory string) (*Node, error) {
 	n := &Node{
 		core:      &yggdrasil.Core{},
 		config:    yggdrasilconfig.GenerateConfig(),
-		admin:     &yggdrasiladmin.AdminSocket{},
 		multicast: &yggdrasilmulticast.Multicast{},
 		log:       gologme.New(os.Stdout, "YGG ", log.Flags()),
 		incoming:  make(chan QUICStream),
 	}
-	n.core.SetBuildInfo(n)
+	//n.core.SetBuildInfo(n)
 
 	yggfile := fmt.Sprintf("%s/%s-yggdrasil.conf", storageDirectory, instanceName)
 	if _, err := os.Stat(yggfile); !os.IsNotExist(err) {
@@ -131,20 +126,22 @@ func Setup(instanceName, storageDirectory string) (*Node, error) {
 		panic(err)
 	}
 
-	n.packetConn = n.core.PacketConn()
 	n.tlsConfig = n.generateTLSConfig()
 	n.quicConfig = &quic.Config{
 		MaxIncomingStreams:    0,
 		MaxIncomingUniStreams: 0,
 		KeepAlive:             true,
-		MaxIdleTimeout:        time.Second * 60,
-		HandshakeTimeout:      time.Second * 15,
+		MaxIdleTimeout:        time.Minute * 30,
+		HandshakeTimeout:      time.Second * 30,
 	}
 
 	n.log.Println("Public curve25519:", n.core.EncryptionPublicKey())
 	n.log.Println("Public ed25519:", n.core.SigningPublicKey())
 
-	go n.listenFromYgg()
+	go func() {
+		time.Sleep(time.Second)
+		n.listenFromYgg()
+	}()
 
 	return n, nil
 }
@@ -190,9 +187,11 @@ func (n *Node) PeerCount() int {
 
 func (n *Node) KnownNodes() []gomatrixserverlib.ServerName {
 	nodemap := map[string]struct{}{}
-	for _, peer := range n.core.GetSwitchPeers() {
-		nodemap[hex.EncodeToString(peer.SigningKey[:])] = struct{}{}
-	}
+	/*
+		for _, peer := range n.core.GetSwitchPeers() {
+			nodemap[hex.EncodeToString(peer.SigningKey[:])] = struct{}{}
+		}
+	*/
 	n.sessions.Range(func(_, v interface{}) bool {
 		session, ok := v.(quic.Session)
 		if !ok {
@@ -262,20 +261,4 @@ func (n *Node) SetStaticPeer(uri string) error {
 		}
 	}
 	return nil
-}
-
-func (n *Node) NotifyLinkNew(f func(boxPubKey crypto.BoxPubKey, linkType, remote string)) {
-	n.core.NotifyLinkNew(f)
-}
-
-func (n *Node) NotifyLinkGone(f func(boxPubKey crypto.BoxPubKey, linkType, remote string)) {
-	n.core.NotifyLinkGone(f)
-}
-
-func (n *Node) NotifySessionNew(f func(boxPubKey crypto.BoxPubKey)) {
-	n.core.NotifySessionNew(f)
-}
-
-func (n *Node) NotifySessionGone(f func(boxPubKey crypto.BoxPubKey)) {
-	n.core.NotifySessionGone(f)
 }

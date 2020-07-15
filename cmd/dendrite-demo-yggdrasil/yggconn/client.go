@@ -65,6 +65,7 @@ func (n *Node) CreateFederationClient(
 				ResponseHeaderTimeout: 15 * time.Second,
 				IdleConnTimeout:       60 * time.Second,
 				DialContext:           n.yggdialerctx,
+				TLSClientConfig:       n.tlsConfig,
 			},
 		},
 	)

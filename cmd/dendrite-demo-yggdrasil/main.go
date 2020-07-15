@@ -32,7 +32,6 @@ import (
 	"github.com/matrix-org/dendrite/eduserver"
 	"github.com/matrix-org/dendrite/eduserver/cache"
 	"github.com/matrix-org/dendrite/federationsender"
-	"github.com/matrix-org/dendrite/federationsender/api"
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/config"
 	"github.com/matrix-org/dendrite/internal/httputil"
@@ -40,7 +39,6 @@ import (
 	"github.com/matrix-org/dendrite/roomserver"
 	"github.com/matrix-org/dendrite/userapi"
 	"github.com/matrix-org/gomatrixserverlib"
-	"github.com/yggdrasil-network/yggdrasil-go/src/crypto"
 
 	"github.com/sirupsen/logrus"
 )
@@ -153,30 +151,6 @@ func main() {
 		cfg,
 		base.UseHTTPAPIs,
 	)
-
-	ygg.NotifySessionNew(func(boxPubKey crypto.BoxPubKey) {
-		req := &api.PerformServersAliveRequest{
-			Servers: []gomatrixserverlib.ServerName{
-				gomatrixserverlib.ServerName(boxPubKey.String()),
-			},
-		}
-		res := &api.PerformServersAliveResponse{}
-		if err := fsAPI.PerformServersAlive(context.TODO(), req, res); err != nil {
-			logrus.WithError(err).Warn("Failed to notify server alive due to new session")
-		}
-	})
-
-	ygg.NotifyLinkNew(func(boxPubKey crypto.BoxPubKey, linkType, remote string) {
-		req := &api.PerformServersAliveRequest{
-			Servers: []gomatrixserverlib.ServerName{
-				gomatrixserverlib.ServerName(boxPubKey.String()),
-			},
-		}
-		res := &api.PerformServersAliveResponse{}
-		if err := fsAPI.PerformServersAlive(context.TODO(), req, res); err != nil {
-			logrus.WithError(err).Warn("Failed to notify server alive due to new link")
-		}
-	})
 
 	// Build both ends of a HTTP multiplex.
 	httpServer := &http.Server{
