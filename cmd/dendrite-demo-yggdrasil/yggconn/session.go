@@ -52,8 +52,8 @@ func (n *Node) listenFromYgg() {
 			return
 		}
 		if len(session.ConnectionState().PeerCertificates) != 1 {
-			session.CloseWithError(0, "expected a peer certificate")
-			return
+			_ = session.CloseWithError(0, "expected a peer certificate")
+			continue
 		}
 		address := session.ConnectionState().PeerCertificates[0].Subject.CommonName
 		n.log.Infoln("Accepted connection from", address)

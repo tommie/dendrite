@@ -32,6 +32,7 @@ import (
 	"github.com/matrix-org/dendrite/eduserver"
 	"github.com/matrix-org/dendrite/eduserver/cache"
 	"github.com/matrix-org/dendrite/federationsender"
+	"github.com/matrix-org/dendrite/federationsender/api"
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/config"
 	"github.com/matrix-org/dendrite/internal/httputil"
@@ -173,6 +174,14 @@ func main() {
 		httpBindAddr := fmt.Sprintf(":%d", *instancePort)
 		logrus.Info("Listening on ", httpBindAddr)
 		logrus.Fatal(http.ListenAndServe(httpBindAddr, base.BaseMux))
+	}()
+	go func() {
+		logrus.Info("Sending wake-up message to known nodes")
+		req := &api.PerformBroadcastEDURequest{}
+		res := &api.PerformBroadcastEDUResponse{}
+		if err := fsAPI.PerformBroadcastEDU(context.TODO(), req, res); err != nil {
+			logrus.WithError(err).Error("Failed to send wake-up message to known nodes")
+		}
 	}()
 
 	select {}

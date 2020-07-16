@@ -24,7 +24,6 @@ import (
 	"github.com/matrix-org/dendrite/userapi"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/sirupsen/logrus"
-	"github.com/yggdrasil-network/yggdrasil-go/src/crypto"
 )
 
 type DendriteMonolith struct {
@@ -162,32 +161,6 @@ func (m *DendriteMonolith) Start() {
 		base.UseHTTPAPIs,
 	)
 
-	ygg.NotifySessionNew(func(boxPubKey crypto.BoxPubKey) {
-		serv := gomatrixserverlib.ServerName(boxPubKey.String())
-		req := &api.PerformServersAliveRequest{
-			Servers: []gomatrixserverlib.ServerName{serv},
-		}
-		res := &api.PerformServersAliveResponse{}
-		if err := fsAPI.PerformServersAlive(context.TODO(), req, res); err != nil {
-			logrus.WithError(err).Warnf("Failed to notify server %q alive due to new session", serv)
-		} else {
-			logrus.Infof("Notified server %q alive due to new session", serv)
-		}
-	})
-
-	ygg.NotifyLinkNew(func(boxPubKey crypto.BoxPubKey, linkType, remote string) {
-		serv := gomatrixserverlib.ServerName(boxPubKey.String())
-		req := &api.PerformServersAliveRequest{
-			Servers: []gomatrixserverlib.ServerName{serv},
-		}
-		res := &api.PerformServersAliveResponse{}
-		if err := fsAPI.PerformServersAlive(context.TODO(), req, res); err != nil {
-			logrus.WithError(err).Warnf("Failed to notify server %q alive due to new peer", serv)
-		} else {
-			logrus.Infof("Notified server %q alive due to new peer", serv)
-		}
-	})
-
 	// Build both ends of a HTTP multiplex.
 	httpServer := &http.Server{
 		Addr:         ":0",
@@ -208,6 +181,14 @@ func (m *DendriteMonolith) Start() {
 	go func() {
 		logger.Info("Listening on ", m.BaseURL())
 		logger.Fatal(httpServer.Serve(m.listener))
+	}()
+	go func() {
+		logrus.Info("Sending wake-up message to known nodes")
+		req := &api.PerformBroadcastEDURequest{}
+		res := &api.PerformBroadcastEDUResponse{}
+		if err := fsAPI.PerformBroadcastEDU(context.TODO(), req, res); err != nil {
+			logrus.WithError(err).Error("Failed to send wake-up message to known nodes")
+		}
 	}()
 }
 
