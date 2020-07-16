@@ -256,7 +256,10 @@ func (oq *destinationQueue) backgroundSend() {
 					// PDUs waiting to be sent. By sending a message into the wake chan,
 					// the next loop iteration will try processing these PDUs again,
 					// subject to the backoff.
-					oq.notifyPDUs <- true
+					select {
+					case oq.notifyPDUs <- true:
+					default:
+					}
 				}
 			} else if transaction {
 				// If we successfully sent the transaction then clear out
