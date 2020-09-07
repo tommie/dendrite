@@ -86,15 +86,15 @@ func (v StateResolution) LoadStateAtSnapshot(
 func (v StateResolution) LoadStateAtEvent(
 	ctx context.Context, eventID string,
 ) ([]types.StateEntry, error) {
-	snapshotNID, err := v.db.SnapshotNIDFromEventID(ctx, eventID)
+	stateAtEvents, err := v.db.StateAtEventIDs(ctx, []string{eventID})
 	if err != nil {
 		return nil, fmt.Errorf("LoadStateAtEvent.SnapshotNIDFromEventID failed for event %s : %s", eventID, err)
 	}
-	if snapshotNID == 0 {
+	if len(stateAtEvents) == 0 || stateAtEvents[0].BeforeStateSnapshotNID == 0 {
 		return nil, fmt.Errorf("LoadStateAtEvent.SnapshotNIDFromEventID(%s) returned 0 NID, was this event stored?", eventID)
 	}
 
-	stateEntries, err := v.LoadStateAtSnapshot(ctx, snapshotNID)
+	stateEntries, err := v.LoadStateAtSnapshot(ctx, stateAtEvents[0].BeforeStateSnapshotNID)
 	if err != nil {
 		return nil, err
 	}

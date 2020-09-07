@@ -32,7 +32,7 @@ func CheckAuthEvents(
 	authEventIDs []string,
 ) ([]types.EventNID, error) {
 	// Grab the numeric IDs for the supplied auth state events from the database.
-	authStateEntries, err := db.StateEntriesForEventIDs(ctx, authEventIDs)
+	authStateEntries, err := db.StateAtEventIDs(ctx, authEventIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func loadAuthEvents(
 	ctx context.Context,
 	db storage.Database,
 	needed gomatrixserverlib.StateNeeded,
-	state []types.StateEntry,
+	state []types.StateAtEvent,
 ) (result authEvents, err error) {
 	// Look up the numeric IDs for the state keys needed for auth.
 	var neededStateKeys []string
@@ -141,7 +141,7 @@ func loadAuthEvents(
 	}
 
 	// Load the events we need.
-	result.state = state
+	result.state = StateEntries(state)
 	var eventNIDs []types.EventNID
 	keyTuplesNeeded := stateKeyTuplesNeeded(result.stateKeyNIDMap, needed)
 	for _, keyTuple := range keyTuplesNeeded {

@@ -36,9 +36,6 @@ type EventStateKeys interface {
 type Events interface {
 	InsertEvent(c context.Context, txn *sql.Tx, i types.RoomNID, j types.EventTypeNID, k types.EventStateKeyNID, eventID string, referenceSHA256 []byte, authEventNIDs []types.EventNID, depth int64) (types.EventNID, types.StateSnapshotNID, error)
 	SelectEvent(ctx context.Context, txn *sql.Tx, eventID string) (types.EventNID, types.StateSnapshotNID, error)
-	// bulkSelectStateEventByID lookups a list of state events by event ID.
-	// If any of the requested events are missing from the database it returns a types.MissingEventError
-	BulkSelectStateEventByID(ctx context.Context, eventIDs []string) ([]types.StateEntry, error)
 	// BulkSelectStateAtEventByID lookups the state at a list of events by event ID.
 	// If any of the requested events are missing from the database it returns a types.MissingEventError.
 	// If we do not have the state for any of the requested events it returns a types.MissingEventError.

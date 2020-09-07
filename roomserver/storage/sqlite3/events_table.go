@@ -54,17 +54,10 @@ const insertEventSQL = `
 const selectEventSQL = "" +
 	"SELECT event_nid, state_snapshot_nid FROM roomserver_events WHERE event_id = $1"
 
-// Bulk lookup of events by string ID.
-// Sort by the numeric IDs for event type and state key.
-// This means we can use binary search to lookup entries by type and state key.
-const bulkSelectStateEventByIDSQL = "" +
-	"SELECT event_type_nid, event_state_key_nid, event_nid FROM roomserver_events" +
-	" WHERE event_id IN ($1)" +
-	" ORDER BY event_type_nid, event_state_key_nid ASC"
-
 const bulkSelectStateAtEventByIDSQL = "" +
 	"SELECT event_type_nid, event_state_key_nid, event_nid, state_snapshot_nid FROM roomserver_events" +
-	" WHERE event_id IN ($1)"
+	" WHERE event_id IN ($1)" +
+	" ORDER BY event_type_nid, event_state_key_nid ASC"
 
 const updateEventStateSQL = "" +
 	"UPDATE roomserver_events SET state_snapshot_nid = $1 WHERE event_nid = $2"
@@ -101,7 +94,6 @@ type eventStatements struct {
 	db                                     *sql.DB
 	insertEventStmt                        *sql.Stmt
 	selectEventStmt                        *sql.Stmt
-	bulkSelectStateEventByIDStmt           *sql.Stmt
 	bulkSelectStateAtEventByIDStmt         *sql.Stmt
 	updateEventStateStmt                   *sql.Stmt
 	selectEventSentToOutputStmt            *sql.Stmt
@@ -126,7 +118,6 @@ func NewSqliteEventsTable(db *sql.DB) (tables.Events, error) {
 	return s, shared.StatementList{
 		{&s.insertEventStmt, insertEventSQL},
 		{&s.selectEventStmt, selectEventSQL},
-		{&s.bulkSelectStateEventByIDStmt, bulkSelectStateEventByIDSQL},
 		{&s.bulkSelectStateAtEventByIDStmt, bulkSelectStateAtEventByIDSQL},
 		{&s.updateEventStateStmt, updateEventStateSQL},
 		{&s.updateEventSentToOutputStmt, updateEventSentToOutputSQL},
@@ -177,57 +168,6 @@ func (s *eventStatements) SelectEvent(
 	selectStmt := sqlutil.TxStmt(txn, s.selectEventStmt)
 	err := selectStmt.QueryRowContext(ctx, eventID).Scan(&eventNID, &stateNID)
 	return types.EventNID(eventNID), types.StateSnapshotNID(stateNID), err
-}
-
-// bulkSelectStateEventByID lookups a list of state events by event ID.
-// If any of the requested events are missing from the database it returns a types.MissingEventError
-func (s *eventStatements) BulkSelectStateEventByID(
-	ctx context.Context, eventIDs []string,
-) ([]types.StateEntry, error) {
-	///////////////
-	iEventIDs := make([]interface{}, len(eventIDs))
-	for k, v := range eventIDs {
-		iEventIDs[k] = v
-	}
-	selectOrig := strings.Replace(bulkSelectStateEventByIDSQL, "($1)", sqlutil.QueryVariadic(len(iEventIDs)), 1)
-	selectStmt, err := s.db.Prepare(selectOrig)
-	if err != nil {
-		return nil, err
-	}
-	///////////////
-
-	rows, err := selectStmt.QueryContext(ctx, iEventIDs...)
-	if err != nil {
-		return nil, err
-	}
-	defer internal.CloseAndLogIfError(ctx, rows, "bulkSelectStateEventByID: rows.close() failed")
-	// We know that we will only get as many results as event IDs
-	// because of the unique constraint on event IDs.
-	// So we can allocate an array of the correct size now.
-	// We might get fewer results than IDs so we adjust the length of the slice before returning it.
-	results := make([]types.StateEntry, len(eventIDs))
-	i := 0
-	for ; rows.Next(); i++ {
-		result := &results[i]
-		if err = rows.Scan(
-			&result.EventTypeNID,
-			&result.EventStateKeyNID,
-			&result.EventNID,
-		); err != nil {
-			return nil, err
-		}
-	}
-	if i != len(eventIDs) {
-		// If there are fewer rows returned than IDs then we were asked to lookup event IDs we don't have.
-		// We don't know which ones were missing because we don't return the string IDs in the query.
-		// However it should be possible debug this by replaying queries or entries from the input kafka logs.
-		// If this turns out to be impossible and we do need the debug information here, it would be better
-		// to do it as a separate query rather than slowing down/complicating the internal case.
-		return nil, types.MissingEventError(
-			fmt.Sprintf("storage: state event IDs missing from the database (%d != %d)", i, len(eventIDs)),
-		)
-	}
-	return results, err
 }
 
 // bulkSelectStateAtEventByID lookups the state at a list of events by event ID.

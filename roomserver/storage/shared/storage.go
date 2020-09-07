@@ -106,12 +106,6 @@ func (d *Database) EventStateKeyNIDs(
 	return result, nil
 }
 
-func (d *Database) StateEntriesForEventIDs(
-	ctx context.Context, eventIDs []string,
-) ([]types.StateEntry, error) {
-	return d.EventsTable.BulkSelectStateEventByID(ctx, eventIDs)
-}
-
 func (d *Database) StateEntriesForTuples(
 	ctx context.Context,
 	stateBlockNIDs []types.StateBlockNID,
@@ -171,13 +165,6 @@ func (d *Database) StateAtEventIDs(
 	ctx context.Context, eventIDs []string,
 ) ([]types.StateAtEvent, error) {
 	return d.EventsTable.BulkSelectStateAtEventByID(ctx, eventIDs)
-}
-
-func (d *Database) SnapshotNIDFromEventID(
-	ctx context.Context, eventID string,
-) (types.StateSnapshotNID, error) {
-	_, stateNID, err := d.EventsTable.SelectEvent(ctx, nil, eventID)
-	return stateNID, err
 }
 
 func (d *Database) EventIDs(

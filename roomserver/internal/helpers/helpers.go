@@ -377,3 +377,11 @@ func QueryLatestEventsAndState(
 
 	return nil
 }
+
+func StateEntries(input []types.StateAtEvent) []types.StateEntry {
+	output := make([]types.StateEntry, len(input))
+	for i := range input {
+		output[i] = input[i].StateEntry
+	}
+	return output
+}
