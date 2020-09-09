@@ -8,6 +8,6 @@ export BUILD=`git rev-parse --short HEAD || ""`
 
 export FLAGS="-X github.com/matrix-org/dendrite/internal.branch=$BRANCH -X github.com/matrix-org/dendrite/internal.build=$BUILD"
 
-go install -trimpath -ldflags "$FLAGS" -v $PWD/`dirname $0`/cmd/...
+go install --tags "sqlite_trace" -trimpath -ldflags "$FLAGS" -v $PWD/`dirname $0`/cmd/...
 
-GOOS=js GOARCH=wasm go build -trimpath -ldflags "$FLAGS" -o main.wasm ./cmd/dendritejs
+#GOOS=js GOARCH=wasm go build -trimpath -ldflags "$FLAGS" -o main.wasm ./cmd/dendritejs
