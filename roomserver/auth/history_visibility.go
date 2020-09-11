@@ -19,6 +19,10 @@ import (
 	"github.com/matrix-org/gomatrixserverlib"
 )
 
+const (
+	shared = "shared"
+)
+
 // TODO: This logic should live in gomatrixserverlib
 
 // IsServerAllowed returns true if the server is allowed to see events in the room
@@ -50,7 +54,7 @@ func IsServerAllowed(
 		return true
 	}
 	// 3. If history_visibility was set to shared, and the user joined the room at any point after the event was sent, allow.
-	if historyVisibility == "shared" && serverCurrentlyInRoom {
+	if historyVisibility == shared && serverCurrentlyInRoom {
 		return true
 	}
 	// 4. If the user's membership was invite, and the history_visibility was set to invited, allow.
@@ -67,10 +71,10 @@ func HistoryVisibilityForRoom(hisVisEvent *gomatrixserverlib.Event) (string, err
 	// https://matrix.org/docs/spec/client_server/r0.6.0#id87
 	// By default if no history_visibility is set, or if the value is not understood, the visibility is assumed to be shared.
 	if hisVisEvent == nil {
-		return "shared", nil
+		return shared, nil
 	}
-	visibility := "shared"
-	knownStates := []string{"invited", "joined", "shared", "world_readable"}
+	visibility := shared
+	knownStates := []string{"invited", "joined", shared, "world_readable"}
 	if hisVisEvent.Type() != gomatrixserverlib.MRoomHistoryVisibility {
 		return "", fmt.Errorf("HistoryVisibilityForRoom: passed a non history visibility event: %s", hisVisEvent.Type())
 	}

@@ -502,10 +502,8 @@ func joinEventsFromHistoryVisibility(
 		return nil, fmt.Errorf("failed to load history visibility event nid %d", historyVisibilityNID)
 	}
 	var hisVisEvent *gomatrixserverlib.Event
-	for i := range stateEvents {
-		if stateEvents[i].Type() == gomatrixserverlib.MRoomHistoryVisibility && stateEvents[i].StateKeyEquals("") {
-			hisVisEvent = &stateEvents[i].Event
-		}
+	if stateEvents[0].Type() == gomatrixserverlib.MRoomHistoryVisibility && stateEvents[0].StateKeyEquals("") {
+		hisVisEvent = &stateEvents[0].Event
 	}
 	visibility, err := auth.HistoryVisibilityForRoom(hisVisEvent)
 	if err != nil {
