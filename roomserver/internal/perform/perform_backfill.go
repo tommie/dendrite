@@ -480,27 +480,37 @@ func (b *backfillRequester) ProvideEvents(roomVer gomatrixserverlib.RoomVersion,
 // TODO: Long term we probably want a history_visibility table which stores eventNID | visibility_enum so we can just
 //       pull all events and then filter by that table.
 func joinEventsFromHistoryVisibility(
-	ctx context.Context, db storage.Database, roomID string, stateEntries []types.StateEntry) ([]types.Event, error) {
+	ctx context.Context, db storage.Database, roomID string, stateEntries []types.StateEntry,
+) ([]types.Event, error) {
 
-	var eventNIDs []types.EventNID
+	// Extract the history visibility event
+	var historyVisibilityNID types.EventNID
 	for _, entry := range stateEntries {
-		// Filter the events to retrieve to only keep the membership events
 		if entry.EventTypeNID == types.MRoomHistoryVisibilityNID && entry.EventStateKeyNID == types.EmptyStateKeyNID {
-			eventNIDs = append(eventNIDs, entry.EventNID)
+			historyVisibilityNID = entry.EventNID
 			break
 		}
 	}
-
-	// Get all of the events in this state
-	stateEvents, err := db.Events(ctx, eventNIDs)
+	if historyVisibilityNID == 0 {
+		return nil, fmt.Errorf("no history visibility event for room %s", roomID)
+	}
+	stateEvents, err := db.Events(ctx, []types.EventNID{historyVisibilityNID})
 	if err != nil {
 		return nil, err
 	}
-	events := make([]gomatrixserverlib.Event, len(stateEvents))
-	for i := range stateEvents {
-		events[i] = stateEvents[i].Event
+	if len(stateEvents) != 1 {
+		return nil, fmt.Errorf("failed to load history visibility event nid %d", historyVisibilityNID)
 	}
-	visibility := auth.HistoryVisibilityForRoom(events)
+	var hisVisEvent *gomatrixserverlib.Event
+	for i := range stateEvents {
+		if stateEvents[i].Type() == gomatrixserverlib.MRoomHistoryVisibility && stateEvents[i].StateKeyEquals("") {
+			hisVisEvent = &stateEvents[i].Event
+		}
+	}
+	visibility, err := auth.HistoryVisibilityForRoom(hisVisEvent)
+	if err != nil {
+		return nil, err
+	}
 	if visibility != "shared" {
 		logrus.Infof("ServersAtEvent history visibility not shared: %s", visibility)
 		return nil, nil

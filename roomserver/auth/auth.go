@@ -14,6 +14,7 @@ package auth
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/matrix-org/gomatrixserverlib"
 )
@@ -27,7 +28,17 @@ func IsServerAllowed(
 	serverCurrentlyInRoom bool,
 	authEvents []gomatrixserverlib.Event,
 ) bool {
-	historyVisibility := HistoryVisibilityForRoom(authEvents)
+	var hisVisEvent *gomatrixserverlib.Event
+	for i, ae := range authEvents {
+		if ae.Type() == gomatrixserverlib.MRoomHistoryVisibility && ae.StateKeyEquals("") {
+			hisVisEvent = &authEvents[i]
+			break
+		}
+	}
+	historyVisibility, err := HistoryVisibilityForRoom(hisVisEvent)
+	if err != nil {
+		return false
+	}
 
 	// 1. If the history_visibility was set to world_readable, allow.
 	if historyVisibility == "world_readable" {
@@ -52,30 +63,31 @@ func IsServerAllowed(
 	return false
 }
 
-func HistoryVisibilityForRoom(authEvents []gomatrixserverlib.Event) string {
+func HistoryVisibilityForRoom(hisVisEvent *gomatrixserverlib.Event) (string, error) {
 	// https://matrix.org/docs/spec/client_server/r0.6.0#id87
 	// By default if no history_visibility is set, or if the value is not understood, the visibility is assumed to be shared.
+	if hisVisEvent == nil {
+		return "shared", nil
+	}
 	visibility := "shared"
 	knownStates := []string{"invited", "joined", "shared", "world_readable"}
-	for _, ev := range authEvents {
-		if ev.Type() != gomatrixserverlib.MRoomHistoryVisibility {
-			continue
-		}
-		// TODO: This should be HistoryVisibilityContent to match things like 'MemberContent'. Do this when moving to GMSL
-		content := struct {
-			HistoryVisibility string `json:"history_visibility"`
-		}{}
-		if err := json.Unmarshal(ev.Content(), &content); err != nil {
-			break // value is not understood
-		}
-		for _, s := range knownStates {
-			if s == content.HistoryVisibility {
-				visibility = s
-				break
-			}
+	if hisVisEvent.Type() != gomatrixserverlib.MRoomHistoryVisibility {
+		return "", fmt.Errorf("HistoryVisibilityForRoom: passed a non history visibility event: %s", hisVisEvent.Type())
+	}
+	// TODO: This should be HistoryVisibilityContent to match things like 'MemberContent'. Do this when moving to GMSL
+	content := struct {
+		HistoryVisibility string `json:"history_visibility"`
+	}{}
+	if err := json.Unmarshal(hisVisEvent.Content(), &content); err != nil {
+		return visibility, nil // value is not understood
+	}
+	for _, s := range knownStates {
+		if s == content.HistoryVisibility {
+			visibility = s
+			break
 		}
 	}
-	return visibility
+	return visibility, nil
 }
 
 func IsAnyUserOnServerWithMembership(serverName gomatrixserverlib.ServerName, authEvents []gomatrixserverlib.Event, wantMembership string) bool {
