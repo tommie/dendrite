@@ -491,24 +491,28 @@ func joinEventsFromHistoryVisibility(
 			break
 		}
 	}
-	if historyVisibilityNID == 0 {
-		return nil, fmt.Errorf("no history visibility event for room %s", roomID)
+
+	// by default visibility is shared if there is no history visibility event
+	visibility := "shared"
+	if historyVisibilityNID != 0 {
+		// load the event and check it
+		stateEvents, err := db.Events(ctx, []types.EventNID{historyVisibilityNID})
+		if err != nil {
+			return nil, err
+		}
+		if len(stateEvents) != 1 {
+			return nil, fmt.Errorf("failed to load history visibility event nid %d", historyVisibilityNID)
+		}
+		var hisVisEvent *gomatrixserverlib.Event
+		if stateEvents[0].Type() == gomatrixserverlib.MRoomHistoryVisibility && stateEvents[0].StateKeyEquals("") {
+			hisVisEvent = &stateEvents[0].Event
+		}
+		visibility, err = auth.HistoryVisibilityForRoom(hisVisEvent)
+		if err != nil {
+			return nil, err
+		}
 	}
-	stateEvents, err := db.Events(ctx, []types.EventNID{historyVisibilityNID})
-	if err != nil {
-		return nil, err
-	}
-	if len(stateEvents) != 1 {
-		return nil, fmt.Errorf("failed to load history visibility event nid %d", historyVisibilityNID)
-	}
-	var hisVisEvent *gomatrixserverlib.Event
-	if stateEvents[0].Type() == gomatrixserverlib.MRoomHistoryVisibility && stateEvents[0].StateKeyEquals("") {
-		hisVisEvent = &stateEvents[0].Event
-	}
-	visibility, err := auth.HistoryVisibilityForRoom(hisVisEvent)
-	if err != nil {
-		return nil, err
-	}
+
 	if visibility != "shared" {
 		logrus.Infof("ServersAtEvent history visibility not shared: %s", visibility)
 		return nil, nil

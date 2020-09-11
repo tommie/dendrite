@@ -94,8 +94,8 @@ func HistoryVisibilityForRoom(hisVisEvent *gomatrixserverlib.Event) (string, err
 	return visibility, nil
 }
 
-func IsAnyUserOnServerWithMembership(serverName gomatrixserverlib.ServerName, authEvents []gomatrixserverlib.Event, wantMembership string) bool {
-	for _, ev := range authEvents {
+func IsAnyUserOnServerWithMembership(serverName gomatrixserverlib.ServerName, membershipEvents []gomatrixserverlib.Event, wantMembership string) bool {
+	for _, ev := range membershipEvents {
 		membership, err := ev.Membership()
 		if err != nil || membership != wantMembership {
 			continue

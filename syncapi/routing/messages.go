@@ -24,8 +24,10 @@ import (
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/internal/config"
 	"github.com/matrix-org/dendrite/roomserver/api"
+	"github.com/matrix-org/dendrite/syncapi/internal"
 	"github.com/matrix-org/dendrite/syncapi/storage"
 	"github.com/matrix-org/dendrite/syncapi/types"
+	userapi "github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
@@ -44,6 +46,7 @@ type messagesReq struct {
 	wasToProvided    bool
 	limit            int
 	backwardOrdering bool
+	requester        string // user ID
 }
 
 type messagesResp struct {
@@ -58,7 +61,7 @@ const defaultMessagesLimit = 10
 // client-server API.
 // See: https://matrix.org/docs/spec/client_server/latest.html#get-matrix-client-r0-rooms-roomid-messages
 func OnIncomingMessagesRequest(
-	req *http.Request, db storage.Database, roomID string,
+	req *http.Request, device *userapi.Device, db storage.Database, roomID string,
 	federation *gomatrixserverlib.FederationClient,
 	rsAPI api.RoomserverInternalAPI,
 	cfg *config.SyncAPI,
@@ -151,6 +154,7 @@ func OnIncomingMessagesRequest(
 		wasToProvided:    wasToProvided,
 		limit:            limit,
 		backwardOrdering: backwardOrdering,
+		requester:        device.UserID,
 	}
 
 	clientEvents, start, end, err := mReq.retrieveEvents()
@@ -238,6 +242,8 @@ func (r *messagesReq) retrieveEvents() (
 		}
 		events = reversed(events)
 	}
+
+	events = internal.ApplyHistoryVisibilityChecks(r.ctx, r.requester, events)
 
 	// Convert all of the events into client events.
 	clientEvents = gomatrixserverlib.HeaderedToClientEvents(events, gomatrixserverlib.FormatAll)
