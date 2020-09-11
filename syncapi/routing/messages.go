@@ -243,7 +243,11 @@ func (r *messagesReq) retrieveEvents() (
 		events = reversed(events)
 	}
 
-	events = internal.ApplyHistoryVisibilityChecks(r.ctx, r.requester, events)
+	events = internal.ApplyHistoryVisibilityChecks(r.ctx, r.rsAPI, r.requester, events)
+	// If we fitered out all the events from these checks, return early
+	if len(events) == 0 {
+		return []gomatrixserverlib.ClientEvent{}, *r.from, *r.to, nil
+	}
 
 	// Convert all of the events into client events.
 	clientEvents = gomatrixserverlib.HeaderedToClientEvents(events, gomatrixserverlib.FormatAll)

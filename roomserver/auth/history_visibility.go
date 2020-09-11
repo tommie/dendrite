@@ -26,7 +26,8 @@ const (
 // TODO: This logic should live in gomatrixserverlib
 
 // IsServerAllowed returns true if the server is allowed to see events in the room
-// at this particular state. This function implements https://matrix.org/docs/spec/client_server/r0.6.0#id87
+// at this particular state. This function implements a server-based version of
+// https://matrix.org/docs/spec/client_server/r0.6.0#id87
 func IsServerAllowed(
 	serverName gomatrixserverlib.ServerName,
 	serverCurrentlyInRoom bool,
