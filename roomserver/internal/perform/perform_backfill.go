@@ -49,6 +49,7 @@ func (r *Backfiller) PerformBackfill(
 	if request.ServerName == r.ServerName {
 		return r.backfillViaFederation(ctx, request, response)
 	}
+
 	// someone else is requesting the backfill, try to service their request.
 	var err error
 	var front []string
@@ -96,6 +97,7 @@ func (r *Backfiller) backfillViaFederation(ctx context.Context, req *api.Perform
 	if info == nil || info.IsStub {
 		return fmt.Errorf("backfillViaFederation: missing room info for room %s", req.RoomID)
 	}
+	util.GetLogger(ctx).Infof("PerformBackfill: %+v in room %+v", req, info)
 	requester := newBackfillRequester(r.DB, r.FSAPI, r.ServerName, req.BackwardsExtremities)
 	// Request 100 items regardless of what the query asks for.
 	// We don't want to go much higher than this.
@@ -115,6 +117,7 @@ func (r *Backfiller) backfillViaFederation(ctx context.Context, req *api.Perform
 	if err != nil {
 		return err
 	}
+	logrus.WithField("room_id", req.RoomID).Infof("persisted %d events from backfill", len(events))
 
 	for _, ev := range backfilledEventMap {
 		// now add state for these events
@@ -240,6 +243,7 @@ func newBackfillRequester(db storage.Database, fsAPI federationSenderAPI.Federat
 func (b *backfillRequester) StateIDsBeforeEvent(ctx context.Context, targetEvent gomatrixserverlib.HeaderedEvent) ([]string, error) {
 	b.eventIDMap[targetEvent.EventID()] = targetEvent.Unwrap()
 	if ids, ok := b.eventIDToBeforeStateIDs[targetEvent.EventID()]; ok {
+		util.GetLogger(ctx).Infof("backfill: StateIDsBeforeEvent OK returning cached state IDs for event %s", targetEvent.EventID())
 		return ids, nil
 	}
 	if len(targetEvent.PrevEventIDs()) == 0 && targetEvent.Type() == "m.room.create" && targetEvent.StateKeyEquals("") {
@@ -254,18 +258,24 @@ func (b *backfillRequester) StateIDsBeforeEvent(ctx context.Context, targetEvent
 		prevEventID := targetEvent.PrevEventIDs()[0]
 		prevEvent, ok := b.eventIDMap[prevEventID]
 		if !ok {
+			util.GetLogger(ctx).Infof("backfill: StateIDsBeforeEvent unknown room state because prev_event is unknown: %s", prevEventID)
 			goto FederationHit
 		}
 		prevEventStateIDs, ok := b.eventIDToBeforeStateIDs[prevEventID]
 		if !ok {
+			util.GetLogger(ctx).Infof("backfill: StateIDsBeforeEvent unknown room state because known prev_event %s has no associated state yet", prevEventID)
 			goto FederationHit
 		}
 		newStateIDs := b.calculateNewStateIDs(targetEvent.Unwrap(), prevEvent, prevEventStateIDs)
 		if newStateIDs != nil {
 			b.eventIDToBeforeStateIDs[targetEvent.EventID()] = newStateIDs
+			util.GetLogger(ctx).Infof("backfill: StateIDsBeforeEvent OK rolled forward state for event %s", targetEvent.EventID())
 			return newStateIDs, nil
 		}
+		util.GetLogger(ctx).Infof("backfill: StateIDsBeforeEvent unknown room state because failed to calculate new state_ids from prev_event %s", prevEventID)
 		// else we failed to calculate the new state, so fallthrough
+	} else {
+		util.GetLogger(ctx).Infof("backfill: StateIDsBeforeEvent unknown room state because >1 prev_events, count: %d", len(targetEvent.PrevEventIDs()))
 	}
 
 FederationHit:
@@ -283,6 +293,7 @@ FederationHit:
 			continue
 		}
 		b.eventIDToBeforeStateIDs[targetEvent.EventID()] = res
+		util.GetLogger(ctx).Infof("backfill: StateIDsBeforeEvent storing state_ids for event %s", targetEvent.EventID())
 		return res, nil
 	}
 	return nil, lastErr
@@ -293,6 +304,7 @@ func (b *backfillRequester) calculateNewStateIDs(targetEvent, prevEvent gomatrix
 	if prevEvent.StateKey() == nil {
 		// state is the same as the previous event
 		b.eventIDToBeforeStateIDs[targetEvent.EventID()] = newStateIDs
+		util.GetLogger(context.Background()).Infof("backfill: calculateNewStateIDs OK prev_event was not a state event, state remains unchanged.")
 		return newStateIDs
 	}
 
@@ -312,6 +324,9 @@ func (b *backfillRequester) calculateNewStateIDs(targetEvent, prevEvent gomatrix
 			break
 		}
 	}
+	util.GetLogger(context.Background()).Infof(
+		"backfill: calculateNewStateIDs missing an event from state_ids? %v  - rolled forward matching state? %v", missingState, foundEvent,
+	)
 	if !foundEvent && !missingState {
 		// we can be certain that this is new state
 		newStateIDs = append(newStateIDs, prevEvent.EventID())
