@@ -241,6 +241,7 @@ func newBackfillRequester(db storage.Database, fsAPI federationSenderAPI.Federat
 }
 
 func (b *backfillRequester) StateIDsBeforeEvent(ctx context.Context, targetEvent gomatrixserverlib.HeaderedEvent) ([]string, error) {
+	util.GetLogger(ctx).Infof("depth=%d type=%s event=%s prevs=%v", targetEvent.Depth(), targetEvent.Type(), targetEvent.EventID(), targetEvent.PrevEventIDs())
 	b.eventIDMap[targetEvent.EventID()] = targetEvent.Unwrap()
 	if ids, ok := b.eventIDToBeforeStateIDs[targetEvent.EventID()]; ok {
 		util.GetLogger(ctx).Infof("backfill: StateIDsBeforeEvent OK returning cached state IDs for event %s", targetEvent.EventID())
