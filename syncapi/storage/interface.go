@@ -49,6 +49,9 @@ type Database interface {
 	PeeksInRange(ctx context.Context, userID, deviceID string, r types.Range) (peeks []types.Peek, err error)
 	RoomReceiptsAfter(ctx context.Context, roomIDs []string, streamPos types.StreamPosition) (types.StreamPosition, []eduAPI.OutputReceiptEvent, error)
 
+	// MostRecentMembership returns the most recent membership event for the user, along with the global stream position.
+	MostRecentMembership(ctx context.Context, roomID, userID string) (*gomatrixserverlib.HeaderedEvent, types.StreamPosition, error)
+
 	// AllJoinedUsersInRooms returns a map of room ID to a list of all joined user IDs.
 	AllJoinedUsersInRooms(ctx context.Context) (map[string][]string, error)
 	// AllPeekingDevicesInRooms returns a map of room ID to a list of all peeking devices.
@@ -110,6 +113,8 @@ type Database interface {
 	GetEventsInTopologicalRange(ctx context.Context, from, to *types.TopologyToken, roomID string, limit int, backwardOrdering bool) (events []types.StreamEvent, err error)
 	// EventPositionInTopology returns the depth and stream position of the given event.
 	EventPositionInTopology(ctx context.Context, eventID string) (types.TopologyToken, error)
+	// EventPositionInStream returns the global stream position of the given event.
+	EventPositionInStream(ctx context.Context, eventID string) (types.StreamPosition, error)
 	// BackwardExtremitiesForRoom returns a map of backwards extremity event ID to a list of its prev_events.
 	BackwardExtremitiesForRoom(ctx context.Context, roomID string) (backwardExtremities map[string][]string, err error)
 	// MaxTopologicalPosition returns the highest topological position for a given room.
