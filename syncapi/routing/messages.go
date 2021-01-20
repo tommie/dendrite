@@ -16,6 +16,7 @@ package routing
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -156,6 +157,7 @@ func OnIncomingMessagesRequest(
 			}
 		}
 	}
+
 	// TODO: Implement filtering (#587)
 
 	// Check the room ID's format.
@@ -164,6 +166,74 @@ func OnIncomingMessagesRequest(
 			Code: http.StatusBadRequest,
 			JSON: jsonerror.MissingArgument("Bad room ID: " + err.Error()),
 		}
+	}
+
+	// Enforce boundaries based on history visibility.
+	visibility := "shared"
+	hisVisFilter := gomatrixserverlib.DefaultStateFilter()
+	hisVisFilter.Types = []string{"m.room.history_visibility"}
+	hisVisEvents, err := db.CurrentState(req.Context(), roomID, &hisVisFilter)
+	if err != nil {
+		util.GetLogger(req.Context()).WithError(err).Error("db.CurrentState for history visibility failed")
+		return jsonerror.InternalServerError()
+	}
+	if len(hisVisEvents) == 1 {
+		var content struct {
+			HistoryVisibility string `json:"history_visibility"`
+		}
+		if err = json.Unmarshal(hisVisEvents[0].Content(), &content); err != nil {
+			util.GetLogger(req.Context()).WithError(err).Error("json.Unmarshal for history visibility failed")
+			return jsonerror.InternalServerError()
+		}
+		visibility = content.HistoryVisibility
+	}
+
+	switch visibility {
+	case "joined", "invited": // TODO: treat invites properly
+		membership, _, err := db.MostRecentMembership(req.Context(), roomID, device.UserID) // nolint:govet
+		if err != nil {
+			util.GetLogger(req.Context()).WithError(err).Error("db.MostRecentMembership for history visibility failed")
+			return jsonerror.InternalServerError()
+		}
+		if membership == nil {
+			return util.JSONResponse{
+				Code: http.StatusForbidden,
+				JSON: jsonerror.Forbidden("History visibility prevents non-members from seeing this room"),
+			}
+		}
+		pos, err := db.EventPositionInTopology(req.Context(), membership.EventID())
+		if err != nil {
+			util.GetLogger(req.Context()).WithError(err).Error("db.PositionInTopology for history visibility failed")
+			return jsonerror.InternalServerError()
+		}
+		if backwardOrdering {
+			if to.Depth < pos.Depth || to.PDUPosition < pos.PDUPosition {
+				to = pos
+			}
+		} else {
+			if from.Depth < pos.Depth || from.PDUPosition < pos.PDUPosition {
+				from = pos
+			}
+		}
+
+	case "shared":
+		pos, err := db.EventPositionInTopology(req.Context(), hisVisEvents[0].EventID()) // nolint:govet
+		if err != nil {
+			util.GetLogger(req.Context()).WithError(err).Error("db.PositionInTopology for history visibility failed")
+			return jsonerror.InternalServerError()
+		}
+		if backwardOrdering {
+			if to.Depth < pos.Depth || to.PDUPosition < pos.PDUPosition {
+				to = pos
+			}
+		} else {
+			if from.Depth < pos.Depth || from.PDUPosition < pos.PDUPosition {
+				from = pos
+			}
+		}
+
+	case "world_readable":
+		// do nothing, as world-readable imposes no boundaries
 	}
 
 	mReq := messagesReq{
@@ -237,6 +307,8 @@ func (r *messagesReq) retrieveEvents() (
 ) {
 	eventFilter := gomatrixserverlib.DefaultRoomEventFilter()
 	eventFilter.Limit = r.limit
+
+	// Work out if the history visibility affects the range of the request.
 
 	// Retrieve the events from the local database.
 	var streamEvents []types.StreamEvent

@@ -517,6 +517,9 @@ func (d *Database) MostRecentMembership(
 	if err != nil {
 		return nil, 0, fmt.Errorf("d.CurrentRoomState.SelectStateEvent: %w", err)
 	}
+	if event == nil {
+		return nil, 0, nil
+	}
 	pos, err := d.OutputEvents.SelectPositionInStream(ctx, nil, event.EventID())
 	if err != nil {
 		return nil, 0, fmt.Errorf("d.OutputEvents.SelectPositionInStream: %w", err)
