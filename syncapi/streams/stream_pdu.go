@@ -135,12 +135,12 @@ func (p *PDUStreamProvider) IncrementalSync(
 	eventFilter := req.Filter.Room.Timeline
 
 	if req.WantFullState {
-		if stateDeltas, joinedRooms, err = p.DB.GetStateDeltasForFullStateSync(ctx, req.Device, r, req.Device.UserID, &stateFilter); err != nil {
+		if stateDeltas, joinedRooms, err = p.DB.GetStateDeltasForFullStateSync(ctx, req.Device, r, req.Device.UserID, &req.Filter); err != nil {
 			req.Log.WithError(err).Error("p.DB.GetStateDeltasForFullStateSync failed")
 			return
 		}
 	} else {
-		if stateDeltas, joinedRooms, err = p.DB.GetStateDeltas(ctx, req.Device, r, req.Device.UserID, &stateFilter); err != nil {
+		if stateDeltas, joinedRooms, err = p.DB.GetStateDeltas(ctx, req.Device, r, req.Device.UserID, &req.Filter); err != nil {
 			req.Log.WithError(err).Error("p.DB.GetStateDeltas failed")
 			return
 		}
@@ -194,12 +194,13 @@ func (p *PDUStreamProvider) getHistoryVisibility(
 	return historyVisibility, historyEventID, nil
 }
 
+// nolint:gocyclo
 func (p *PDUStreamProvider) addRoomDeltaToResponse(
 	ctx context.Context,
 	device *userapi.Device,
 	r types.Range,
 	delta types.StateDelta,
-	_ *gomatrixserverlib.StateFilter,
+	stateFilter *gomatrixserverlib.StateFilter,
 	eventFilter *gomatrixserverlib.RoomEventFilter,
 	res *types.Response,
 ) error {
@@ -208,7 +209,8 @@ func (p *PDUStreamProvider) addRoomDeltaToResponse(
 		return fmt.Errorf("p.getHistoryVisibility: %w", err)
 	}
 
-	if r, _, err = p.limitBoundariesUsingHistoryVisibility(
+	var stateAtEvent string
+	if r, stateAtEvent, err = p.limitBoundariesUsingHistoryVisibility(
 		ctx, delta.RoomID, device.UserID, historyVisibility, historyEventID, r,
 	); err != nil {
 		return err
@@ -221,6 +223,23 @@ func (p *PDUStreamProvider) addRoomDeltaToResponse(
 	if err != nil {
 		return err
 	}
+
+	// If the boundary has been truncated by history visibility then we
+	// must not reveal any state that comes after that. Returning the
+	// current state is no good. Instead, ask the roomserver for the
+	// state at the boundary event.
+	if len(delta.StateEvents) == 0 && stateAtEvent != "" {
+		queryReq := &rsapi.QueryStateAfterEventsRequest{
+			RoomID:       delta.RoomID,
+			PrevEventIDs: []string{stateAtEvent},
+		}
+		queryRes := &rsapi.QueryStateAfterEventsResponse{}
+		if err = p.rsAPI.QueryStateAfterEvents(ctx, queryReq, queryRes); err != nil {
+			return err
+		}
+		delta.StateEvents = p.filterStateEventsAccordingToFilter(queryRes.StateEvents, stateFilter)
+	}
+
 	recentEvents := p.DB.StreamEventsToEvents(device, recentStreamEvents)
 	delta.StateEvents = removeDuplicates(delta.StateEvents, recentEvents) // roll back
 	prevBatch, err := p.DB.GetBackwardTopologyPos(ctx, recentStreamEvents)
@@ -268,14 +287,13 @@ func (p *PDUStreamProvider) addRoomDeltaToResponse(
 	return nil
 }
 
+// nolint:gocyclo
 func (p *PDUStreamProvider) limitBoundariesUsingHistoryVisibility(
 	ctx context.Context,
 	roomID, userID string,
 	historyVisibility, historyEventID string,
 	r types.Range,
 ) (types.Range, string, error) {
-	// Calculate the current history visibility rule.
-
 	var err error
 	var joinPos types.StreamPosition
 	var stateAtEventID string
@@ -296,10 +314,6 @@ func (p *PDUStreamProvider) limitBoundariesUsingHistoryVisibility(
 			// to the room.
 			return r, stateAtEventID, nil
 		}
-
-	case "world_readable":
-		// It doesn't matter if the user is joined to the room or not
-		// when the history is world_readable.
 	}
 
 	// If the user is in the room then we next need to work out if we
@@ -308,11 +322,11 @@ func (p *PDUStreamProvider) limitBoundariesUsingHistoryVisibility(
 	switch historyVisibility {
 	case "invited", "joined":
 		if r.Backwards {
-			if r.To > joinPos {
+			if r.To < joinPos {
 				r.To = joinPos
 			}
 		} else {
-			if r.From > joinPos {
+			if r.From < joinPos {
 				r.From = joinPos
 			}
 		}
@@ -320,32 +334,30 @@ func (p *PDUStreamProvider) limitBoundariesUsingHistoryVisibility(
 	case "shared":
 		// Find the stream position of the history visibility event
 		// and use that as a boundary instead.
-		var historyVisibilityPosition types.StreamPosition
-		historyVisibilityPosition, err = p.DB.EventPositionInStream(ctx, historyEventID)
-		if err != nil {
-			return r, stateAtEventID, fmt.Errorf("p.DB.EventPositionInStream: %w", err)
-		}
-		if r.Backwards {
-			if r.To < historyVisibilityPosition {
-				r.To = historyVisibilityPosition
+		if historyEventID != "" {
+			var pos types.StreamPosition
+			pos, err = p.DB.EventPositionInStream(ctx, historyEventID)
+			if err != nil {
+				return r, stateAtEventID, fmt.Errorf("p.DB.EventPositionInStream: %w", err)
 			}
-		} else {
-			if r.From < historyVisibilityPosition {
-				r.From = historyVisibilityPosition
+			if r.Backwards {
+				if r.To < pos {
+					r.To = pos
+				}
+			} else {
+				if r.From < pos {
+					r.From = pos
+				}
 			}
+			stateAtEventID = historyEventID
 		}
-		stateAtEventID = historyEventID
-
-	case "world_readable":
-		// Do nothing, as it's OK to reveal the entire timeline in a
-		// world-readable room.
 	}
 
 	// Finally, work out if the user left the room. If they did then
 	// we will request the state at the leave event from the roomserver.
 	switch historyVisibility {
 	case "invited", "joined", "shared":
-		if leaveEvent, leavePos, _, err := p.DB.MostRecentMembership(ctx, roomID, userID, []string{"leave", "ban", "kick"}); err == nil {
+		if ev, leavePos, _, err := p.DB.MostRecentMembership(ctx, roomID, userID, []string{"leave", "ban"}); err == nil {
 			if r.Backwards {
 				if r.From > leavePos {
 					r.From = leavePos
@@ -355,10 +367,8 @@ func (p *PDUStreamProvider) limitBoundariesUsingHistoryVisibility(
 					r.To = leavePos
 				}
 			}
-			stateAtEventID = leaveEvent.EventID()
+			stateAtEventID = ev.EventID()
 		}
-
-	case "world_readable":
 	}
 
 	return r, stateAtEventID, nil

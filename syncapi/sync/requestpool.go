@@ -35,6 +35,7 @@ import (
 	userapi "github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/util"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
 
 // RequestPool manages HTTP long-poll connections for /sync
@@ -188,6 +189,7 @@ func (rp *RequestPool) OnIncomingSyncRequest(req *http.Request, device *userapi.
 
 	if syncReq.Since.IsEmpty() {
 		// Complete sync
+		logrus.Infof("Sync complete")
 		syncReq.Response.NextBatch = types.StreamingToken{
 			PDUPosition: rp.streams.PDUStreamProvider.CompleteSync(
 				syncReq.Context, syncReq,
@@ -213,6 +215,7 @@ func (rp *RequestPool) OnIncomingSyncRequest(req *http.Request, device *userapi.
 		}
 	} else {
 		// Incremental sync
+		logrus.Infof("Sync since %s", syncReq.Since.String())
 		syncReq.Response.NextBatch = types.StreamingToken{
 			PDUPosition: rp.streams.PDUStreamProvider.IncrementalSync(
 				syncReq.Context, syncReq,
