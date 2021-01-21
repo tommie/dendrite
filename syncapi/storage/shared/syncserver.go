@@ -516,20 +516,20 @@ func (d *Database) EventPositionInStream(
 }
 
 func (d *Database) MostRecentMembership(
-	ctx context.Context, roomID, userID string,
-) (*gomatrixserverlib.HeaderedEvent, types.StreamPosition, error) {
-	event, err := d.CurrentRoomState.SelectStateEvent(ctx, roomID, gomatrixserverlib.MRoomMember, userID)
+	ctx context.Context, roomID, userID string, memberships []string,
+) (*gomatrixserverlib.HeaderedEvent, types.StreamPosition, types.StreamPosition, error) {
+	eventID, streamPos, topoPos, err := d.Memberships.SelectMembership(ctx, nil, roomID, userID, memberships)
 	if err != nil {
-		return nil, 0, fmt.Errorf("d.CurrentRoomState.SelectStateEvent: %w", err)
+		return nil, 0, 0, fmt.Errorf("d.CurrentRoomState.SelectStateEvent: %w", err)
 	}
-	if event == nil {
-		return nil, 0, nil
-	}
-	pos, err := d.OutputEvents.SelectPositionInStream(ctx, nil, event.EventID())
+	events, err := d.OutputEvents.SelectEvents(ctx, nil, []string{eventID})
 	if err != nil {
-		return nil, 0, fmt.Errorf("d.OutputEvents.SelectPositionInStream: %w", err)
+		return nil, 0, 0, fmt.Errorf("d.OutputEvents.SelectEvents: %w", err)
 	}
-	return event, pos, nil
+	if len(events) == 0 {
+		return nil, 0, 0, fmt.Errorf("no event returned")
+	}
+	return events[0].HeaderedEvent, streamPos, topoPos, err
 }
 
 func (d *Database) GetFilter(

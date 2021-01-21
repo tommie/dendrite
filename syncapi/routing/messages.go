@@ -190,29 +190,28 @@ func OnIncomingMessagesRequest(
 
 	switch visibility {
 	case "joined", "invited": // TODO: treat invites properly
-		membership, _, err := db.MostRecentMembership(req.Context(), roomID, device.UserID) // nolint:govet
-		if err != nil {
-			util.GetLogger(req.Context()).WithError(err).Error("db.MostRecentMembership for history visibility failed")
-			return jsonerror.InternalServerError()
+		joinTypes := []string{"join"}
+		if visibility == "invited" {
+			joinTypes = []string{"invite", "join"}
 		}
-		if membership == nil {
-			return util.JSONResponse{
-				Code: http.StatusForbidden,
-				JSON: jsonerror.Forbidden("History visibility prevents non-members from seeing this room"),
+		var joinPDUPos, joinTopoPos types.StreamPosition
+		var leavePDUPos, leaveTopoPos types.StreamPosition
+		if _, joinPDUPos, joinTopoPos, err = db.MostRecentMembership(req.Context(), roomID, device.UserID, joinTypes); err == nil {
+			if backwardOrdering {
+				to.PDUPosition = joinPDUPos
+				to.Depth = joinTopoPos
+			} else {
+				from.PDUPosition = joinPDUPos
+				from.Depth = joinTopoPos
 			}
 		}
-		pos, err := db.EventPositionInTopology(req.Context(), membership.EventID())
-		if err != nil {
-			util.GetLogger(req.Context()).WithError(err).Error("db.PositionInTopology for history visibility failed")
-			return jsonerror.InternalServerError()
-		}
-		if backwardOrdering {
-			if to.Depth < pos.Depth || to.PDUPosition < pos.PDUPosition {
-				to = pos
-			}
-		} else {
-			if from.Depth < pos.Depth || from.PDUPosition < pos.PDUPosition {
-				from = pos
+		if _, leavePDUPos, leaveTopoPos, err = db.MostRecentMembership(req.Context(), roomID, device.UserID, []string{"leave", "ban", "kick"}); err == nil {
+			if backwardOrdering {
+				from.PDUPosition = leavePDUPos
+				from.Depth = leaveTopoPos
+			} else {
+				to.PDUPosition = leavePDUPos
+				to.Depth = leaveTopoPos
 			}
 		}
 

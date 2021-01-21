@@ -60,7 +60,7 @@ const upsertMembershipSQL = "" +
 const selectMembershipSQL = "" +
 	"SELECT event_id, stream_pos, topological_pos FROM syncapi_memberships" +
 	" WHERE room_id = $1 AND user_id = $2 AND membership IN ($3)" +
-	" ORDER BY stream_pos DESC" +
+	" ORDER BY stream_pos ASC" +
 	" LIMIT 1"
 
 type membershipsStatements struct {
@@ -103,7 +103,7 @@ func (s *membershipsStatements) UpsertMembership(
 }
 
 func (s *membershipsStatements) SelectMembership(
-	ctx context.Context, txn *sql.Tx, roomID, userID, memberships []string,
+	ctx context.Context, txn *sql.Tx, roomID, userID string, memberships []string,
 ) (eventID string, streamPos, topologyPos types.StreamPosition, err error) {
 	params := []interface{}{roomID, userID}
 	for _, membership := range memberships {
