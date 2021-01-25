@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	eduserverAPI "github.com/matrix-org/dendrite/eduserver/api"
 	keyapi "github.com/matrix-org/dendrite/keyserver/api"
@@ -56,7 +57,7 @@ func Send(
 	}
 
 	var txnEvents struct {
-		PDUs []json.RawMessage       `json:"pdus"`
+		PDUs []jsoniter.RawMessage   `json:"pdus"`
 		EDUs []gomatrixserverlib.EDU `json:"edus"`
 	}
 

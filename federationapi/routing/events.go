@@ -16,10 +16,10 @@ package routing
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
@@ -45,7 +45,7 @@ func GetEvent(
 	return util.JSONResponse{Code: http.StatusOK, JSON: gomatrixserverlib.Transaction{
 		Origin:         origin,
 		OriginServerTS: gomatrixserverlib.AsTimestamp(time.Now()),
-		PDUs: []json.RawMessage{
+		PDUs: []jsoniter.RawMessage{
 			event.JSON(),
 		},
 	}}

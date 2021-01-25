@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/Shopify/sarama"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/matrix-org/dendrite/eduserver/api"
 	"github.com/matrix-org/dendrite/federationsender/queue"
 	"github.com/matrix-org/dendrite/federationsender/storage"
@@ -131,7 +132,7 @@ func (t *OutputEDUConsumer) onSendToDeviceEvent(msg *sarama.ConsumerMessage) err
 		Sender:    ote.Sender,
 		Type:      ote.Type,
 		MessageID: util.RandomString(32),
-		Messages: map[string]map[string]json.RawMessage{
+		Messages: map[string]map[string]jsoniter.RawMessage{
 			ote.UserID: {
 				ote.DeviceID: ote.Content,
 			},

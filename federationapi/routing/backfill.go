@@ -15,12 +15,12 @@
 package routing
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup/config"
@@ -102,7 +102,7 @@ func Backfill(
 		}
 	}
 
-	eventJSONs := []json.RawMessage{}
+	eventJSONs := []jsoniter.RawMessage{}
 	for _, e := range gomatrixserverlib.ReverseTopologicalOrdering(
 		evs,
 		gomatrixserverlib.TopologicalOrderByPrevEvents,

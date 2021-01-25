@@ -16,11 +16,11 @@ package queue
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/matrix-org/dendrite/federationsender/statistics"
 	"github.com/matrix-org/dendrite/federationsender/storage"
 	"github.com/matrix-org/dendrite/federationsender/storage/shared"
@@ -367,7 +367,7 @@ func (oq *destinationQueue) nextTransaction(
 
 	// Create the transaction.
 	t := gomatrixserverlib.Transaction{
-		PDUs: []json.RawMessage{},
+		PDUs: []jsoniter.RawMessage{},
 		EDUs: []gomatrixserverlib.EDU{},
 	}
 	t.Origin = oq.origin
@@ -390,7 +390,7 @@ func (oq *destinationQueue) nextTransaction(
 		if pdu == nil || pdu.pdu == nil {
 			continue
 		}
-		// Append the JSON of the event, since this is a json.RawMessage type in the
+		// Append the JSON of the event, since this is a jsoniter.RawMessage type in the
 		// gomatrixserverlib.Transaction struct
 		t.PDUs = append(t.PDUs, pdu.pdu.JSON())
 		pduReceipts = append(pduReceipts, pdu.receipt)
