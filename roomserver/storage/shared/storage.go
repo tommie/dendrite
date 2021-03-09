@@ -137,11 +137,12 @@ func (d *Database) RoomInfo(ctx context.Context, roomID string) (*types.RoomInfo
 
 func (d *Database) AddState(
 	ctx context.Context,
+	txn *sql.Tx,
 	roomNID types.RoomNID,
 	stateBlockNIDs []types.StateBlockNID,
 	state []types.StateEntry,
 ) (stateNID types.StateSnapshotNID, err error) {
-	err = d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
+	err = d.Writer.Do(d.DB, txn, func(txn *sql.Tx) error {
 		if len(state) > 0 {
 			var stateBlockNID types.StateBlockNID
 			stateBlockNID, err = d.StateBlockTable.BulkInsertStateData(ctx, txn, state)

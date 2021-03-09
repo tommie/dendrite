@@ -16,6 +16,7 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
@@ -32,6 +33,7 @@ type Database interface {
 	// Store the room state at an event in the database
 	AddState(
 		ctx context.Context,
+		txn *sql.Tx,
 		roomNID types.RoomNID,
 		stateBlockNIDs []types.StateBlockNID,
 		state []types.StateEntry,

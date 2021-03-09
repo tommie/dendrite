@@ -62,7 +62,7 @@ func (r *Queryer) QueryStateAfterEvents(
 		return nil
 	}
 
-	roomState := state.NewStateResolution(r.DB, *info)
+	roomState := state.NewStateResolution(r.DB, *info, nil)
 	response.RoomExists = true
 	response.RoomVersion = info.RoomVersion
 
@@ -507,7 +507,7 @@ func (r *Queryer) QueryStateAndAuthChain(
 }
 
 func (r *Queryer) loadStateAtEventIDs(ctx context.Context, roomInfo types.RoomInfo, eventIDs []string) ([]*gomatrixserverlib.Event, error) {
-	roomState := state.NewStateResolution(r.DB, roomInfo)
+	roomState := state.NewStateResolution(r.DB, roomInfo, nil)
 	prevStates, err := r.DB.StateAtEventIDs(ctx, eventIDs)
 	if err != nil {
 		switch err.(type) {

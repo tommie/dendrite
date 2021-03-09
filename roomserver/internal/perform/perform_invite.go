@@ -231,7 +231,7 @@ func buildInviteStrippedState(
 			StateKey:  "",
 		})
 	}
-	roomState := state.NewStateResolution(db, *info)
+	roomState := state.NewStateResolution(db, *info, nil)
 	stateEntries, err := roomState.LoadStateAtSnapshotForStringTuples(
 		ctx, info.StateSnapshotNID, stateWanted,
 	)

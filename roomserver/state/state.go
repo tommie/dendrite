@@ -18,6 +18,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sort"
 	"time"
@@ -34,13 +35,15 @@ type StateResolution struct {
 	db       storage.Database
 	roomInfo types.RoomInfo
 	events   map[types.EventNID]*gomatrixserverlib.Event
+	txn      *sql.Tx // optional
 }
 
-func NewStateResolution(db storage.Database, roomInfo types.RoomInfo) StateResolution {
+func NewStateResolution(db storage.Database, roomInfo types.RoomInfo, tx *sql.Tx) StateResolution {
 	return StateResolution{
 		db:       db,
 		roomInfo: roomInfo,
 		events:   make(map[types.EventNID]*gomatrixserverlib.Event),
+		txn:      tx,
 	}
 }
 
@@ -549,7 +552,7 @@ func (v *StateResolution) CalculateAndStoreStateAfterEvents(
 		// 2) There weren't any prev_events for this event so the state is
 		// empty.
 		metrics.algorithm = "empty_state"
-		stateNID, err := v.db.AddState(ctx, v.roomInfo.RoomNID, nil, nil)
+		stateNID, err := v.db.AddState(ctx, v.txn, v.roomInfo.RoomNID, nil, nil)
 		if err != nil {
 			err = fmt.Errorf("v.db.AddState: %w", err)
 		}
@@ -581,7 +584,7 @@ func (v *StateResolution) CalculateAndStoreStateAfterEvents(
 			// add the state event as a block of size one to the end of the blocks.
 			metrics.algorithm = "single_delta"
 			stateNID, err := v.db.AddState(
-				ctx, v.roomInfo.RoomNID, stateBlockNIDs, []types.StateEntry{prevState.StateEntry},
+				ctx, v.txn, v.roomInfo.RoomNID, stateBlockNIDs, []types.StateEntry{prevState.StateEntry},
 			)
 			if err != nil {
 				err = fmt.Errorf("v.db.AddState: %w", err)
@@ -626,7 +629,7 @@ func (v *StateResolution) calculateAndStoreStateAfterManyEvents(
 	// previous state.
 	metrics.conflictLength = conflictLength
 	metrics.fullStateLength = len(state)
-	return metrics.stop(v.db.AddState(ctx, roomNID, nil, state))
+	return metrics.stop(v.db.AddState(ctx, v.txn, roomNID, nil, state))
 }
 
 func (v *StateResolution) calculateStateAfterManyEvents(

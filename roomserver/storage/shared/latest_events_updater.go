@@ -16,6 +16,7 @@ type LatestEventsUpdater struct {
 	latestEvents            []types.StateAtEventAndReference
 	lastEventIDSent         string
 	currentStateSnapshotNID types.StateSnapshotNID
+	Txn                     *sql.Tx
 }
 
 func rollback(txn *sql.Tx) {
@@ -46,7 +47,7 @@ func NewLatestEventsUpdater(ctx context.Context, d *Database, txn *sql.Tx, roomI
 		}
 	}
 	return &LatestEventsUpdater{
-		transaction{ctx, txn}, d, roomInfo, stateAndRefs, lastEventIDSent, currentStateSnapshotNID,
+		transaction{ctx, txn}, d, roomInfo, stateAndRefs, lastEventIDSent, currentStateSnapshotNID, txn,
 	}, nil
 }
 

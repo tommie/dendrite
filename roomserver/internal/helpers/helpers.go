@@ -172,7 +172,7 @@ func GetMembershipsAtState(
 }
 
 func StateBeforeEvent(ctx context.Context, db storage.Database, info types.RoomInfo, eventNID types.EventNID) ([]types.StateEntry, error) {
-	roomState := state.NewStateResolution(db, info)
+	roomState := state.NewStateResolution(db, info, nil)
 	// Lookup the event NID
 	eIDs, err := db.EventIDs(ctx, []types.EventNID{eventNID})
 	if err != nil {
@@ -217,7 +217,7 @@ func LoadStateEvents(
 func CheckServerAllowedToSeeEvent(
 	ctx context.Context, db storage.Database, info types.RoomInfo, eventID string, serverName gomatrixserverlib.ServerName, isServerInRoom bool,
 ) (bool, error) {
-	roomState := state.NewStateResolution(db, info)
+	roomState := state.NewStateResolution(db, info, nil)
 	stateEntries, err := roomState.LoadStateAtEvent(ctx, eventID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -379,7 +379,7 @@ func QueryLatestEventsAndState(
 		return nil
 	}
 
-	roomState := state.NewStateResolution(db, *roomInfo)
+	roomState := state.NewStateResolution(db, *roomInfo, nil)
 	response.RoomExists = true
 	response.RoomVersion = roomInfo.RoomVersion
 

@@ -146,7 +146,7 @@ func (r *Backfiller) backfillViaFederation(ctx context.Context, req *api.Perform
 		}
 
 		var beforeStateSnapshotNID types.StateSnapshotNID
-		if beforeStateSnapshotNID, err = r.DB.AddState(ctx, roomNID, nil, entries); err != nil {
+		if beforeStateSnapshotNID, err = r.DB.AddState(ctx, nil, roomNID, nil, entries); err != nil {
 			logrus.WithError(err).WithField("event_id", ev.EventID()).Error("backfillViaFederation: failed to persist state entries to get snapshot nid")
 			return err
 		}
