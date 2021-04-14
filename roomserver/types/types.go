@@ -74,6 +74,24 @@ func (a StateEntry) LessThan(b StateEntry) bool {
 	return a.EventNID < b.EventNID
 }
 
+// Deduplicate takes a set of event NIDs and ensures that there are no
+// duplicates. If there are then we dedupe them.
+func DeduplicateEventNIDs(a []EventNID) []EventNID {
+	if len(a) < 2 {
+		return a
+	}
+	sort.SliceStable(a, func(i, j int) bool {
+		return a[i] < a[j]
+	})
+	for i := 0; i < len(a)-1; i++ {
+		if a[i] == a[i+1] {
+			a = append(a[:i], a[i+1:]...)
+			i--
+		}
+	}
+	return a
+}
+
 // Deduplicate takes a set of state entries and ensures that there are no
 // duplicate (event type, state key) tuples. If there are then we dedupe
 // them, making sure that the latest/highest NIDs are always chosen.
@@ -150,18 +168,6 @@ const (
 	// EmptyStateKeyNID is the numeric ID for the empty state key.
 	EmptyStateKeyNID = 1
 )
-
-// StateBlockNIDList is used to return the result of bulk StateBlockNID lookups from the database.
-type StateBlockNIDList struct {
-	StateSnapshotNID StateSnapshotNID
-	StateBlockNIDs   []StateBlockNID
-}
-
-// StateEntryList is used to return the result of bulk state entry lookups from the database.
-type StateEntryList struct {
-	StateBlockNID StateBlockNID
-	StateEntries  []StateEntry
-}
 
 // A MissingEventError is an error that happened because the roomserver was
 // missing requested events from its database.

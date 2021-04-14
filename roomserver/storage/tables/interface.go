@@ -43,6 +43,7 @@ type Events interface {
 	// bulkSelectStateEventByID lookups a list of state events by event ID.
 	// If any of the requested events are missing from the database it returns a types.MissingEventError
 	BulkSelectStateEventByID(ctx context.Context, eventIDs []string) ([]types.StateEntry, error)
+	BulkSelectStateEventByNID(ctx context.Context, eventNIDs []types.EventNID) ([]types.StateEntry, error)
 	// BulkSelectStateAtEventByID lookups the state at a list of events by event ID.
 	// If any of the requested events are missing from the database it returns a types.MissingEventError.
 	// If we do not have the state for any of the requested events it returns a types.MissingEventError.
@@ -80,6 +81,12 @@ type Transactions interface {
 	SelectTransactionEventID(ctx context.Context, transactionID string, sessionID int64, userID string) (eventID string, err error)
 }
 
+type State interface {
+	InsertState(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, eventNIDs []types.EventNID) (types.StateSnapshotNID, error)
+	BulkSelectState(ctx context.Context, stateNIDs []types.StateSnapshotNID) (map[types.StateSnapshotNID][]types.EventNID, error)
+}
+
+/*
 type StateSnapshot interface {
 	InsertState(ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, stateBlockNIDs []types.StateBlockNID) (stateNID types.StateSnapshotNID, err error)
 	BulkSelectStateBlockNIDs(ctx context.Context, stateNIDs []types.StateSnapshotNID) ([]types.StateBlockNIDList, error)
@@ -90,6 +97,7 @@ type StateBlock interface {
 	BulkSelectStateBlockEntries(ctx context.Context, stateBlockNIDs []types.StateBlockNID) ([]types.StateEntryList, error)
 	BulkSelectFilteredStateBlockEntries(ctx context.Context, stateBlockNIDs []types.StateBlockNID, stateKeyTuples []types.StateKeyTuple) ([]types.StateEntryList, error)
 }
+*/
 
 type RoomAliases interface {
 	InsertRoomAlias(ctx context.Context, txn *sql.Tx, alias string, roomID string, creatorUserID string) (err error)

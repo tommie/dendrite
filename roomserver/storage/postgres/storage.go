@@ -86,11 +86,17 @@ func (d *Database) prepare(db *sql.DB, cache caching.RoomServerCaches) (err erro
 	if err != nil {
 		return err
 	}
-	stateBlock, err := NewPostgresStateBlockTable(db)
-	if err != nil {
-		return err
-	}
-	stateSnapshot, err := NewPostgresStateSnapshotTable(db)
+	/*
+		stateBlock, err := NewPostgresStateBlockTable(db)
+		if err != nil {
+			return err
+		}
+		stateSnapshot, err := NewPostgresStateSnapshotTable(db)
+		if err != nil {
+			return err
+		}
+	*/
+	state, err := NewPostgresStateTable(db)
 	if err != nil {
 		return err
 	}
@@ -128,14 +134,15 @@ func (d *Database) prepare(db *sql.DB, cache caching.RoomServerCaches) (err erro
 		EventsTable:         events,
 		RoomsTable:          rooms,
 		TransactionsTable:   transactions,
-		StateBlockTable:     stateBlock,
-		StateSnapshotTable:  stateSnapshot,
-		PrevEventsTable:     prevEvents,
-		RoomAliasesTable:    roomAliases,
-		InvitesTable:        invites,
-		MembershipTable:     membership,
-		PublishedTable:      published,
-		RedactionsTable:     redactions,
+		StateTable:          state,
+		//	StateBlockTable:     stateBlock,
+		//	StateSnapshotTable:  stateSnapshot,
+		PrevEventsTable:  prevEvents,
+		RoomAliasesTable: roomAliases,
+		InvitesTable:     invites,
+		MembershipTable:  membership,
+		PublishedTable:   published,
+		RedactionsTable:  redactions,
 	}
 	return nil
 }

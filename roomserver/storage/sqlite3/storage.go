@@ -98,11 +98,17 @@ func (d *Database) prepare(db *sql.DB, cache caching.RoomServerCaches) error {
 	if err != nil {
 		return err
 	}
-	stateBlock, err := NewSqliteStateBlockTable(db)
-	if err != nil {
-		return err
-	}
-	stateSnapshot, err := NewSqliteStateSnapshotTable(db)
+	/*
+		stateBlock, err := NewSqliteStateBlockTable(db)
+		if err != nil {
+			return err
+		}
+		stateSnapshot, err := NewSqliteStateSnapshotTable(db)
+		if err != nil {
+			return err
+		}
+	*/
+	state, err := NewPostgresStateTable(db)
 	if err != nil {
 		return err
 	}
@@ -131,17 +137,18 @@ func (d *Database) prepare(db *sql.DB, cache caching.RoomServerCaches) error {
 		return err
 	}
 	d.Database = shared.Database{
-		DB:                         db,
-		Cache:                      cache,
-		Writer:                     sqlutil.NewExclusiveWriter(),
-		EventsTable:                events,
-		EventTypesTable:            eventTypes,
-		EventStateKeysTable:        eventStateKeys,
-		EventJSONTable:             eventJSON,
-		RoomsTable:                 rooms,
-		TransactionsTable:          transactions,
-		StateBlockTable:            stateBlock,
-		StateSnapshotTable:         stateSnapshot,
+		DB:                  db,
+		Cache:               cache,
+		Writer:              sqlutil.NewExclusiveWriter(),
+		EventsTable:         events,
+		EventTypesTable:     eventTypes,
+		EventStateKeysTable: eventStateKeys,
+		EventJSONTable:      eventJSON,
+		RoomsTable:          rooms,
+		TransactionsTable:   transactions,
+		StateTable:          state,
+		//	StateBlockTable:            stateBlock,
+		//	StateSnapshotTable:         stateSnapshot,
 		PrevEventsTable:            prevEvents,
 		RoomAliasesTable:           roomAliases,
 		InvitesTable:               invites,
