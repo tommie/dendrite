@@ -99,6 +99,7 @@ func (s *stateStatements) BulkSelectState(
 		if err = rows.Scan(&stateNID, &eventNIDs); err != nil {
 			return nil, err
 		}
+		results[types.StateSnapshotNID(stateNID)] = []types.EventNID{}
 		for _, id := range eventNIDs {
 			results[types.StateSnapshotNID(stateNID)] = append(
 				results[types.StateSnapshotNID(stateNID)],

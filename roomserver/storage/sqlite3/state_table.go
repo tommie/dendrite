@@ -111,16 +111,11 @@ func (s *stateStatements) BulkSelectState(
 		if err = rows.Scan(&stateNID, &eventNIDJSON); err != nil {
 			return nil, fmt.Errorf("rows.Scan: %w", err)
 		}
-		var eventNIDs []int64
+		var eventNIDs []types.EventNID
 		if err = json.Unmarshal(eventNIDJSON, &eventNIDs); err != nil {
 			return nil, fmt.Errorf("json.Unmarshal: %w", err)
 		}
-		for _, id := range eventNIDs {
-			results[types.StateSnapshotNID(stateNID)] = append(
-				results[types.StateSnapshotNID(stateNID)],
-				types.EventNID(id),
-			)
-		}
+		results[types.StateSnapshotNID(stateNID)] = eventNIDs
 	}
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows.Err: %w", err)

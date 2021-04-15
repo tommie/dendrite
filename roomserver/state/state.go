@@ -463,7 +463,7 @@ func (v *StateResolution) CalculateAndStoreStateBeforeEvent(
 	// Load the state at the prev events.
 	prevStates, err := v.db.StateAtEventIDs(ctx, event.PrevEventIDs())
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("v.db.StateAtEventIDs: %w", err)
 	}
 
 	// The state before this event will be the state after the events that came before it.

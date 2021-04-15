@@ -215,7 +215,7 @@ func (d *Database) StateEntries(
 ) ([]types.StateEntry, error) {
 	nids, err := d.StateTable.BulkSelectState(ctx, []types.StateSnapshotNID{stateSnapshotNID})
 	if err != nil {
-		return nil, fmt.Errorf("d.StateTable.BulkSelectState: %w", err)
+		return nil, fmt.Errorf("d.StateTable.BulkSelectState: %w (ID %d)", err, stateSnapshotNID)
 	}
 	state, ok := nids[stateSnapshotNID]
 	if !ok {
