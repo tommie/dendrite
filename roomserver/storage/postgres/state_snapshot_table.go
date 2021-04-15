@@ -25,6 +25,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
+	"github.com/matrix-org/util"
 )
 
 const stateSnapshotSchema = `
@@ -86,14 +87,16 @@ func NewPostgresStateSnapshotTable(db *sql.DB) (tables.StateSnapshot, error) {
 }
 
 func (s *stateSnapshotStatements) InsertState(
-	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, stateBlockNIDs []types.StateBlockNID,
+	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, stateBlockNIDs types.StateBlockNIDs,
 ) (stateNID types.StateSnapshotNID, err error) {
-	nids := make([]int64, len(stateBlockNIDs))
+	stateBlockNIDs = stateBlockNIDs[:util.SortAndUnique(stateBlockNIDs)]
+	nids := make(int64Sorter, len(stateBlockNIDs))
 	for i := range stateBlockNIDs {
 		nids[i] = int64(stateBlockNIDs[i])
 	}
+	nids = nids[:util.SortAndUnique(nids)]
 	var id int64
-	err = sqlutil.TxStmt(txn, s.insertStateStmt).QueryRowContext(ctx, int64(roomNID), pq.Int64Array(nids), int64(roomNID)).Scan(&id)
+	err = sqlutil.TxStmt(txn, s.insertStateStmt).QueryRowContext(ctx, int64(roomNID), pq.Int64Array(nids)).Scan(&id)
 	if err != nil {
 		return 0, err
 	}

@@ -25,6 +25,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage"
 	"github.com/matrix-org/util"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/gomatrixserverlib"
@@ -61,14 +62,18 @@ func (v *StateResolution) LoadStateAtSnapshot(
 	if err != nil {
 		return nil, err
 	}
+	logrus.Warn("LISTS: ", stateEntryLists)
 	stateEntriesMap := stateEntryListMap(stateEntryLists)
+	logrus.Warn("Map: ", stateEntriesMap)
 
 	// Combine all the state entries for this snapshot.
 	// The order of state block NIDs in the list tells us the order to combine them in.
 	var fullState []types.StateEntry
 	for _, stateBlockNID := range stateBlockNIDList.StateBlockNIDs {
+		logrus.Warn("Looking up ", stateBlockNID)
 		entries, ok := stateEntriesMap.lookup(stateBlockNID)
 		if !ok {
+			logrus.Warnf("State block NID %d: %+v", stateBlockNID, entries)
 			// This should only get hit if the database is corrupt.
 			// It should be impossible for an event to reference a NID that doesn't exist
 			panic(fmt.Errorf("Corrupt DB: Missing state block numeric ID %d", stateBlockNID))

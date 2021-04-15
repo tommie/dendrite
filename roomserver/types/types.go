@@ -40,6 +40,13 @@ type StateSnapshotNID int64
 // These blocks of state data are combined to form the actual state.
 type StateBlockNID int64
 
+// StateBlockNIDs is used to sort and dedupe state block NIDs.
+type StateBlockNIDs []StateBlockNID
+
+func (a StateBlockNIDs) Len() int           { return len(a) }
+func (a StateBlockNIDs) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a StateBlockNIDs) Less(i, j int) bool { return a[i] < a[j] }
+
 // A StateKeyTuple is a pair of a numeric event type and a numeric state key.
 // It is used to lookup state entries.
 type StateKeyTuple struct {
@@ -64,6 +71,12 @@ type StateEntry struct {
 	// The numeric ID for the event.
 	EventNID EventNID
 }
+
+type StateEntries []StateEntry
+
+func (a StateEntries) Len() int           { return len(a) }
+func (a StateEntries) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a StateEntries) Less(i, j int) bool { return a[i].EventNID < a[j].EventNID }
 
 // LessThan returns true if this state entry is less than the other state entry.
 // The ordering is arbitrary and is used to implement binary search and to efficiently deduplicate entries.

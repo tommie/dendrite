@@ -118,9 +118,45 @@ func (d *Database) StateEntriesForTuples(
 	stateBlockNIDs []types.StateBlockNID,
 	stateKeyTuples []types.StateKeyTuple,
 ) ([]types.StateEntryList, error) {
-	return d.StateBlockTable.BulkSelectFilteredStateBlockEntries(
-		ctx, stateBlockNIDs, stateKeyTuples,
+	entries, err := d.StateBlockTable.BulkSelectStateBlockEntries(
+		ctx, stateBlockNIDs,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("d.StateBlockTable.BulkSelectStateBlockEntries: %w", err)
+	}
+	lists := []types.StateEntryList{}
+	for i, entry := range entries {
+		entries, err := d.EventsTable.BulkSelectStateEventByNID(ctx, entry)
+		if err != nil {
+			return nil, fmt.Errorf("d.EventsTable.BulkSelectStateEventByNID: %w", err)
+		}
+		if len(stateKeyTuples) == 0 {
+			lists = append(lists, types.StateEntryList{
+				StateBlockNID: stateBlockNIDs[i],
+				StateEntries:  entries,
+			})
+		} else {
+			eventTypes := map[types.EventTypeNID]struct{}{}
+			stateKeys := map[types.EventStateKeyNID]struct{}{}
+			for _, t := range stateKeyTuples {
+				eventTypes[t.EventTypeNID] = struct{}{}
+				stateKeys[t.EventStateKeyNID] = struct{}{}
+			}
+			filteredEntries := []types.StateEntry{}
+			for _, entry := range entries {
+				_, tok := eventTypes[entry.EventTypeNID]
+				_, sok := stateKeys[entry.EventStateKeyNID]
+				if tok && sok {
+					filteredEntries = append(filteredEntries, entry)
+				}
+			}
+			lists = append(lists, types.StateEntryList{
+				StateBlockNID: stateBlockNIDs[i],
+				StateEntries:  filteredEntries,
+			})
+		}
+	}
+	return lists, nil
 }
 
 func (d *Database) RoomInfo(ctx context.Context, roomID string) (*types.RoomInfo, error) {
@@ -237,7 +273,24 @@ func (d *Database) StateBlockNIDs(
 func (d *Database) StateEntries(
 	ctx context.Context, stateBlockNIDs []types.StateBlockNID,
 ) ([]types.StateEntryList, error) {
-	return d.StateBlockTable.BulkSelectStateBlockEntries(ctx, stateBlockNIDs)
+	entries, err := d.StateBlockTable.BulkSelectStateBlockEntries(
+		ctx, stateBlockNIDs,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("d.StateBlockTable.BulkSelectStateBlockEntries: %w", err)
+	}
+	lists := []types.StateEntryList{}
+	for i, entry := range entries {
+		eventNIDs, err := d.EventsTable.BulkSelectStateEventByNID(ctx, entry)
+		if err != nil {
+			return nil, fmt.Errorf("d.EventsTable.BulkSelectStateEventByNID: %w", err)
+		}
+		lists = append(lists, types.StateEntryList{
+			StateBlockNID: stateBlockNIDs[i],
+			StateEntries:  eventNIDs,
+		})
+	}
+	return lists, nil
 }
 
 func (d *Database) SetRoomAlias(ctx context.Context, alias string, roomID string, creatorUserID string) error {

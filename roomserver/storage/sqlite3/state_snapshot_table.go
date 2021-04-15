@@ -27,6 +27,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/storage/shared"
 	"github.com/matrix-org/dendrite/roomserver/storage/tables"
 	"github.com/matrix-org/dendrite/roomserver/types"
+	"github.com/matrix-org/util"
 )
 
 const stateSnapshotSchema = `
@@ -74,8 +75,9 @@ func NewSqliteStateSnapshotTable(db *sql.DB) (tables.StateSnapshot, error) {
 }
 
 func (s *stateSnapshotStatements) InsertState(
-	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, stateBlockNIDs []types.StateBlockNID,
+	ctx context.Context, txn *sql.Tx, roomNID types.RoomNID, stateBlockNIDs types.StateBlockNIDs,
 ) (stateNID types.StateSnapshotNID, err error) {
+	stateBlockNIDs = stateBlockNIDs[:util.SortAndUnique(stateBlockNIDs)]
 	stateBlockNIDsJSON, err := json.Marshal(stateBlockNIDs)
 	if err != nil {
 		return
