@@ -33,13 +33,17 @@ const stateSnapshotSchema = `
   CREATE TABLE IF NOT EXISTS roomserver_state_snapshots (
     state_snapshot_nid INTEGER PRIMARY KEY AUTOINCREMENT,
     room_nid INTEGER NOT NULL,
-    state_block_nids TEXT NOT NULL DEFAULT '[]'
+    state_block_nids TEXT NOT NULL DEFAULT '[]',
+	UNIQUE (room_nid, state_block_nids)
   );
 `
 
 const insertStateSQL = `
 	INSERT INTO roomserver_state_snapshots (room_nid, state_block_nids)
-	  VALUES ($1, $2);`
+	  VALUES ($1, $2)
+	  ON CONFLICT (room_nid, state_block_nids) DO UPDATE SET room_nid=$3
+	  RETURNING state_snapshot_nid
+`
 
 // Bulk state data NID lookup.
 // Sorting by state_snapshot_nid means we can use binary search over the result
@@ -77,15 +81,12 @@ func (s *stateSnapshotStatements) InsertState(
 		return
 	}
 	insertStmt := sqlutil.TxStmt(txn, s.insertStateStmt)
-	res, err := insertStmt.ExecContext(ctx, int64(roomNID), string(stateBlockNIDsJSON))
+	var id int64
+	err = insertStmt.QueryRowContext(ctx, int64(roomNID), string(stateBlockNIDsJSON), int64(roomNID)).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
-	lastRowID, err := res.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-	stateNID = types.StateSnapshotNID(lastRowID)
+	stateNID = types.StateSnapshotNID(id)
 	return
 }
 
