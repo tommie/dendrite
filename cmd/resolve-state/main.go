@@ -50,23 +50,18 @@ func main() {
 		panic(err)
 	}
 
-	blockNIDs, err := roomserverDB.StateBlockNIDs(ctx, snapshotNIDs)
-	if err != nil {
-		panic(err)
-	}
-
-	var stateEntries []types.StateEntryList
-	for _, list := range blockNIDs {
-		entries, err2 := roomserverDB.StateEntries(ctx, list.StateBlockNIDs)
+	var stateEntries [][]types.StateEntry
+	for _, nid := range snapshotNIDs {
+		entries, err2 := roomserverDB.StateEntries(ctx, nid)
 		if err2 != nil {
 			panic(err2)
 		}
-		stateEntries = append(stateEntries, entries...)
+		stateEntries = append(stateEntries, entries)
 	}
 
 	var eventNIDs []types.EventNID
-	for _, entry := range stateEntries {
-		for _, e := range entry.StateEntries {
+	for _, list := range stateEntries {
+		for _, e := range list {
 			eventNIDs = append(eventNIDs, e.EventNID)
 		}
 	}
