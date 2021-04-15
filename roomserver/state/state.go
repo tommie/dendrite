@@ -508,8 +508,14 @@ func (v *StateResolution) CalculateAndStoreStateAfterEvents(
 			return 0, fmt.Errorf("v.db.StateEntries: %w", err)
 		}
 		found := false
-		for _, s := range oldState {
-			if s.EventNID == prevState.StateEntry.EventNID {
+		for i := range oldState {
+			if oldState[i].EventNID == prevState.EventNID {
+				found = true
+				break
+			}
+			if oldState[i].EventStateKeyNID == prevState.EventStateKeyNID &&
+				oldState[i].EventTypeNID == prevState.EventTypeNID {
+				oldState[i] = prevState.StateEntry
 				found = true
 				break
 			}
@@ -561,13 +567,6 @@ func (v *StateResolution) CalculateAndStoreStateAfterEvents(
 	logrus.Warnf("Multiple prev states added state snapshot %d", stateNID)
 	return stateNID, nil
 }
-
-// maxStateBlockNIDs is the maximum number of state data blocks to use to encode a snapshot of room state.
-// Increasing this number means that we can encode more of the state changes as simple deltas which means that
-// we need fewer entries in the state data table. However making this number bigger will increase the size of
-// the rows in the state table itself and will require more index lookups when retrieving a snapshot.
-// TODO: Tune this to get the right balance between size and lookup performance.
-const maxStateBlockNIDs = 64
 
 // calculateAndStoreStateAfterManyEvents finds the room state after the given events.
 // This handles the slow path of calculateAndStoreStateAfterEvents for when there is more than one event.
@@ -975,16 +974,6 @@ func (s stateNIDSorter) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 func UniqueStateSnapshotNIDs(nids []types.StateSnapshotNID) []types.StateSnapshotNID {
 	return nids[:util.SortAndUnique(stateNIDSorter(nids))]
-}
-
-type stateBlockNIDSorter []types.StateBlockNID
-
-func (s stateBlockNIDSorter) Len() int           { return len(s) }
-func (s stateBlockNIDSorter) Less(i, j int) bool { return s[i] < s[j] }
-func (s stateBlockNIDSorter) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
-func uniqueStateBlockNIDs(nids []types.StateBlockNID) []types.StateBlockNID {
-	return nids[:util.SortAndUnique(stateBlockNIDSorter(nids))]
 }
 
 // Map from event type, state key tuple to numeric event ID.
