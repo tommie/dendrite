@@ -130,12 +130,14 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 		}
 	}
 
-	if _, err = tx.Exec(`DROP TABLE _roomserver_state_snapshots;`); err != nil {
-		return fmt.Errorf("tx.Exec (delete old snapshot table): %w", err)
-	}
-	if _, err = tx.Exec(`DROP TABLE _roomserver_state_block;`); err != nil {
-		return fmt.Errorf("tx.Exec (delete old block table): %w", err)
-	}
+	/*
+		if _, err = tx.Exec(`DROP TABLE _roomserver_state_snapshots;`); err != nil {
+			return fmt.Errorf("tx.Exec (delete old snapshot table): %w", err)
+		}
+		if _, err = tx.Exec(`DROP TABLE _roomserver_state_block;`); err != nil {
+			return fmt.Errorf("tx.Exec (delete old block table): %w", err)
+		}
+	*/
 
 	return nil
 }
