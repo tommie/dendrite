@@ -40,6 +40,13 @@ type StateSnapshotNID int64
 // These blocks of state data are combined to form the actual state.
 type StateBlockNID int64
 
+// EventNIDs is used to sort and dedupe event NIDs.
+type EventNIDs []EventNID
+
+func (a EventNIDs) Len() int           { return len(a) }
+func (a EventNIDs) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a EventNIDs) Less(i, j int) bool { return a[i] < a[j] }
+
 // StateBlockNIDs is used to sort and dedupe state block NIDs.
 type StateBlockNIDs []StateBlockNID
 

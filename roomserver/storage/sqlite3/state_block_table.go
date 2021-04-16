@@ -35,7 +35,7 @@ import (
 const stateDataSchema = `
   CREATE TABLE IF NOT EXISTS roomserver_state_block (
     state_block_nid INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_nids TEXT NOT NULL,
+    event_nids TEXT NOT NULL DEFAULT '[]',
     UNIQUE (event_nids)
   );
 `
