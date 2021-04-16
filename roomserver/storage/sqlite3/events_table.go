@@ -20,6 +20,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/matrix-org/dendrite/internal"
@@ -65,8 +66,8 @@ const bulkSelectStateEventByIDSQL = "" +
 
 const bulkSelectStateEventByNIDSQL = "" +
 	"SELECT event_type_nid, event_state_key_nid, event_nid FROM roomserver_events" +
-	" WHERE event_nid IN ($1)" +
-	" ORDER BY event_type_nid, event_state_key_nid ASC"
+	" WHERE event_nid IN ($1)"
+	// Rest of query is built by BulkSelectStateEventByNID
 
 const bulkSelectStateAtEventByIDSQL = "" +
 	"SELECT event_type_nid, event_state_key_nid, event_nid, state_snapshot_nid, is_rejected FROM roomserver_events" +
@@ -241,22 +242,36 @@ func (s *eventStatements) BulkSelectStateEventByID(
 // If any of the requested events are missing from the database it returns a types.MissingEventError
 func (s *eventStatements) BulkSelectStateEventByNID(
 	ctx context.Context, eventNIDs []types.EventNID,
+	stateKeyTuples []types.StateKeyTuple,
 ) ([]types.StateEntry, error) {
-	///////////////
-	iEventIDs := make([]interface{}, len(eventNIDs))
-	for k, v := range eventNIDs {
-		iEventIDs[k] = v
+	tuples := stateKeyTupleSorter(stateKeyTuples)
+	sort.Sort(tuples)
+	eventTypeNIDArray, eventStateKeyNIDArray := tuples.typesAndStateKeysAsArrays()
+	params := make([]interface{}, 0, len(eventNIDs)+len(eventTypeNIDArray)+len(eventStateKeyNIDArray))
+	selectOrig := strings.Replace(bulkSelectStateEventByNIDSQL, "($1)", sqlutil.QueryVariadic(len(eventNIDs)), 1)
+	for _, v := range eventNIDs {
+		params = append(params, v)
 	}
-	selectOrig := strings.Replace(bulkSelectStateEventByNIDSQL, "($1)", sqlutil.QueryVariadic(len(iEventIDs)), 1)
+	if len(eventTypeNIDArray) > 0 {
+		selectOrig += " AND event_type_nid IN " + sqlutil.QueryVariadicOffset(len(eventTypeNIDArray), len(params))
+		for _, v := range eventTypeNIDArray {
+			params = append(params, v)
+		}
+	}
+	if len(eventStateKeyNIDArray) > 0 {
+		selectOrig += " AND event_state_key_nid IN " + sqlutil.QueryVariadicOffset(len(eventStateKeyNIDArray), len(params))
+		for _, v := range eventStateKeyNIDArray {
+			params = append(params, v)
+		}
+	}
+	selectOrig += " ORDER BY event_type_nid, event_state_key_nid ASC"
 	selectStmt, err := s.db.Prepare(selectOrig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("s.db.Prepare: %w", err)
 	}
-	///////////////
-
-	rows, err := selectStmt.QueryContext(ctx, iEventIDs...)
+	rows, err := selectStmt.QueryContext(ctx, params...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("selectStmt.QueryContext: %w", err)
 	}
 	defer internal.CloseAndLogIfError(ctx, rows, "bulkSelectStateEventByID: rows.close() failed")
 	// We know that we will only get as many results as event IDs
@@ -274,16 +289,6 @@ func (s *eventStatements) BulkSelectStateEventByNID(
 		); err != nil {
 			return nil, err
 		}
-	}
-	if i != len(eventNIDs) {
-		// If there are fewer rows returned than IDs then we were asked to lookup event IDs we don't have.
-		// We don't know which ones were missing because we don't return the string IDs in the query.
-		// However it should be possible debug this by replaying queries or entries from the input kafka logs.
-		// If this turns out to be impossible and we do need the debug information here, it would be better
-		// to do it as a separate query rather than slowing down/complicating the internal case.
-		return nil, types.MissingEventError(
-			fmt.Sprintf("storage: state event IDs missing from the database (%d != %d)", i, len(eventNIDs)),
-		)
 	}
 	return results, err
 }

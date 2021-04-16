@@ -19,6 +19,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 
 	"github.com/lib/pq"
 	"github.com/matrix-org/dendrite/internal"
@@ -91,6 +92,10 @@ const bulkSelectStateEventByIDSQL = "" +
 const bulkSelectStateEventByNIDSQL = "" +
 	"SELECT event_type_nid, event_state_key_nid, event_nid FROM roomserver_events" +
 	" WHERE event_nid = ANY($1)" +
+	//" AND event_type_nid = ANY($2)" +
+	//" AND event_state_key_nid = ANY($3)" +
+	" AND ($2::bigint[] IS NULL OR event_type_nid = ANY($2))" +
+	" AND ($3::bigint[] IS NULL OR event_state_key_nid = ANY($3))" +
 	" ORDER BY event_type_nid, event_state_key_nid ASC"
 
 const bulkSelectStateAtEventByIDSQL = "" +
@@ -249,8 +254,12 @@ func (s *eventStatements) BulkSelectStateEventByID(
 // If any of the requested events are missing from the database it returns a types.MissingEventError
 func (s *eventStatements) BulkSelectStateEventByNID(
 	ctx context.Context, eventNIDs []types.EventNID,
+	stateKeyTuples []types.StateKeyTuple,
 ) ([]types.StateEntry, error) {
-	rows, err := s.bulkSelectStateEventByNIDStmt.QueryContext(ctx, eventNIDsAsArray(eventNIDs))
+	tuples := stateKeyTupleSorter(stateKeyTuples)
+	sort.Sort(tuples)
+	eventTypeNIDArray, eventStateKeyNIDArray := tuples.typesAndStateKeysAsArrays()
+	rows, err := s.bulkSelectStateEventByNIDStmt.QueryContext(ctx, eventNIDsAsArray(eventNIDs), eventTypeNIDArray, eventStateKeyNIDArray)
 	if err != nil {
 		return nil, err
 	}
@@ -273,16 +282,6 @@ func (s *eventStatements) BulkSelectStateEventByNID(
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
-	}
-	if i != len(eventNIDs) {
-		// If there are fewer rows returned than IDs then we were asked to lookup event IDs we don't have.
-		// We don't know which ones were missing because we don't return the string IDs in the query.
-		// However it should be possible debug this by replaying queries or entries from the input kafka logs.
-		// If this turns out to be impossible and we do need the debug information here, it would be better
-		// to do it as a separate query rather than slowing down/complicating the internal case.
-		return nil, types.MissingEventError(
-			fmt.Sprintf("storage: state event IDs missing from the database (%d != %d)", i, len(eventNIDs)),
-		)
 	}
 	return results, nil
 }

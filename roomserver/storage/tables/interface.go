@@ -43,7 +43,7 @@ type Events interface {
 	// bulkSelectStateEventByID lookups a list of state events by event ID.
 	// If any of the requested events are missing from the database it returns a types.MissingEventError
 	BulkSelectStateEventByID(ctx context.Context, eventIDs []string) ([]types.StateEntry, error)
-	BulkSelectStateEventByNID(ctx context.Context, eventNIDs []types.EventNID) ([]types.StateEntry, error)
+	BulkSelectStateEventByNID(ctx context.Context, eventNIDs []types.EventNID, stateKeyTuples []types.StateKeyTuple) ([]types.StateEntry, error)
 	// BulkSelectStateAtEventByID lookups the state at a list of events by event ID.
 	// If any of the requested events are missing from the database it returns a types.MissingEventError.
 	// If we do not have the state for any of the requested events it returns a types.MissingEventError.
