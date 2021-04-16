@@ -156,8 +156,28 @@ func (d *Database) AddState(
 	stateBlockNIDs []types.StateBlockNID,
 	state []types.StateEntry,
 ) (stateNID types.StateSnapshotNID, err error) {
+	if len(stateBlockNIDs) > 0 {
+		// Check to see if the event already appears in any of the existing state
+		// blocks. If it does then we should not add it again, as this will just
+		// result in excess state blocks and snapshots.
+		// TODO: Investigate why this is happening - probably input_events.go!
+		blocks, berr := d.StateBlockTable.BulkSelectStateBlockEntries(ctx, stateBlockNIDs)
+		if berr != nil {
+			return 0, fmt.Errorf("d.StateBlockTable.BulkSelectStateBlockEntries: %w", berr)
+		}
+		for i := len(state) - 1; i >= 0; i-- {
+			for _, events := range blocks {
+				for _, event := range events {
+					if state[i].EventNID == event {
+						state = append(state[:i], state[i+1:]...)
+					}
+				}
+			}
+		}
+	}
 	err = d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
 		if len(state) > 0 {
+			// If there's any state left to add then let's add new blocks.
 			var stateBlockNID types.StateBlockNID
 			stateBlockNID, err = d.StateBlockTable.BulkInsertStateData(ctx, txn, state)
 			if err != nil {
