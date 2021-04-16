@@ -92,8 +92,8 @@ const bulkSelectStateEventByIDSQL = "" +
 const bulkSelectStateEventByNIDSQL = "" +
 	"SELECT event_type_nid, event_state_key_nid, event_nid FROM roomserver_events" +
 	" WHERE event_nid = ANY($1)" +
-	" AND (CARDINALITY($2) = 0 OR event_type_nid = ANY($2))" +
-	" AND (CARDINALITY($3) = 0 OR event_state_key_nid = ANY($3))" +
+	" AND (CARDINALITY($2::bigint[]) = 0 OR event_type_nid = ANY($2))" +
+	" AND (CARDINALITY($3::bigint[]) = 0 OR event_state_key_nid = ANY($3))" +
 	" ORDER BY event_type_nid, event_state_key_nid ASC"
 
 const bulkSelectStateAtEventByIDSQL = "" +
