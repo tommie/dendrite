@@ -23,6 +23,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 )
 
 func LoadStateBlocksRefactor(m *sqlutil.Migrations) {
@@ -30,6 +31,7 @@ func LoadStateBlocksRefactor(m *sqlutil.Migrations) {
 }
 
 func UpStateBlocksRefactor(tx *sql.Tx) error {
+	logrus.Warn("Performing state block refactor upgrade. Please wait, this may take some time!")
 	if _, err := tx.Exec(`ALTER TABLE roomserver_state_block RENAME TO _roomserver_state_block;`); err != nil {
 		return fmt.Errorf("tx.Exec: %w", err)
 	}
@@ -59,6 +61,7 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 	if err != nil {
 		return fmt.Errorf("tx.Exec: %w", err)
 	}
+	logrus.Warn("New tables created...")
 	snapshotrows, err := tx.Query(`SELECT state_snapshot_nid, room_nid, state_block_nids FROM _roomserver_state_snapshots;`)
 	if err != nil {
 		return fmt.Errorf("tx.Query: %w", err)
