@@ -83,22 +83,18 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 		var newblocks []types.StateBlockNID
 		for _, block := range blocks {
 			if err = func() error {
-				blockrows, berr := tx.Query(`SELECT event_nid FROM _roomserver_state_block WHERE state_block_nid = $1`, block)
+				blockrows, berr := tx.Query(`SELECT event_nid FROM _roomserver_state_block WHERE state_block_nid = $1`, int64(block))
 				if berr != nil {
 					return fmt.Errorf("tx.Query (event nids from old block): %w", berr)
 				}
 				defer internal.CloseAndLogIfError(context.TODO(), blockrows, "rows.close() failed")
 				events := types.EventNIDs{}
-				var eventsarray pq.Int64Array
 				for blockrows.Next() {
 					var event types.EventNID
 					if err = blockrows.Scan(&event); err != nil {
-						return fmt.Errorf("rows.Scan: %w", err)
+						return fmt.Errorf("rows.Scan (event nids from old block): %w", err)
 					}
 					events = append(events, event)
-				}
-				for _, e := range eventsarray {
-					events = append(events, types.EventNID(e))
 				}
 				events = events[:util.SortAndUnique(events)]
 
