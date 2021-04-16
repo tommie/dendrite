@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/lib/pq"
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/roomserver/types"
@@ -70,9 +71,13 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 	for snapshotrows.Next() {
 		var snapshot types.StateSnapshotNID
 		var room types.RoomNID
+		var blocksarray pq.Int64Array
 		var blocks []types.StateBlockNID
-		if err = snapshotrows.Scan(&snapshot, &room, &blocks); err != nil {
+		if err = snapshotrows.Scan(&snapshot, &room, &blocksarray); err != nil {
 			return fmt.Errorf("rows.Scan: %w", err)
+		}
+		for _, b := range blocksarray {
+			blocks = append(blocks, types.StateBlockNID(b))
 		}
 
 		var newblocks []types.StateBlockNID
@@ -84,12 +89,16 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 				}
 				defer internal.CloseAndLogIfError(context.TODO(), blockrows, "rows.close() failed")
 				events := types.EventNIDs{}
+				var eventsarray pq.Int64Array
 				for blockrows.Next() {
 					var event types.EventNID
 					if err = blockrows.Scan(&event); err != nil {
 						return fmt.Errorf("rows.Scan: %w", err)
 					}
 					events = append(events, event)
+				}
+				for _, e := range eventsarray {
+					events = append(events, types.EventNID(e))
 				}
 				events = events[:util.SortAndUnique(events)]
 
