@@ -136,7 +136,7 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 					VALUES ($1)
 					ON CONFLICT (event_nids) DO UPDATE SET event_nids=$1
 					RETURNING state_block_nid
-			`, events).Scan(&blocknid)
+			`, eventsarray).Scan(&blocknid)
 			if err != nil {
 				return fmt.Errorf("tx.QueryRow.Scan (insert new block): %w", err)
 			}
