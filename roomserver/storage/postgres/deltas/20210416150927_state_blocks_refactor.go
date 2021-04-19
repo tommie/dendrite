@@ -58,7 +58,7 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 	_, err = tx.Exec(`
 		CREATE SEQUENCE IF NOT EXISTS roomserver_state_snapshot_nid_seq;
 		CREATE TABLE IF NOT EXISTS roomserver_state_snapshots (
-			state_snapshot_nid bigint PRIMARY KEY DEFAULT nextval('roomserver_state_snapshot_nid_seq'),
+			state_snapshot_nid bigserial PRIMARY KEY,
 			room_nid bigint NOT NULL,
 			state_block_nids bigint[] NOT NULL,
 			UNIQUE (room_nid, state_block_nids)
@@ -152,7 +152,7 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 					RETURNING state_block_nid
 			`, eventsarray).Scan(&blocknid)
 			if err != nil {
-				return fmt.Errorf("tx.QueryRow.Scan (insert new block): %w", err)
+				return fmt.Errorf("tx.QueryRow.Scan (insert new block with %d events): %w", len(eventsarray), err)
 			}
 			newblocks = append(newblocks, blocknid)
 
