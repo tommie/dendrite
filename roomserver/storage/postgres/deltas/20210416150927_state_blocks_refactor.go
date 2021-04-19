@@ -15,12 +15,10 @@
 package deltas
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 
 	"github.com/lib/pq"
-	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/util"
@@ -63,91 +61,123 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 		return fmt.Errorf("tx.Exec: %w", err)
 	}
 	logrus.Warn("New tables created...")
-	snapshotrows, err := tx.Query(`SELECT state_snapshot_nid, room_nid, state_block_nids FROM _roomserver_state_snapshots;`)
+
+	var snapshotcount int
+	err = tx.QueryRow(`
+		SELECT COUNT(DISTINCT state_snapshot_nid) FROM roomserver_state_snapshots;
+	`).Scan(&snapshotcount)
 	if err != nil {
-		return fmt.Errorf("tx.Query: %w", err)
+		return fmt.Errorf("tx.QueryRow.Scan (count snapshots): %w", err)
 	}
-	defer internal.CloseAndLogIfError(context.TODO(), snapshotrows, "rows.close() failed")
-	for snapshotrows.Next() {
-		var snapshot types.StateSnapshotNID
-		var room types.RoomNID
-		var blocksarray pq.Int64Array
-		var blocks []types.StateBlockNID
-		if err = snapshotrows.Scan(&snapshot, &room, &blocksarray); err != nil {
-			return fmt.Errorf("rows.Scan: %w", err)
-		}
-		for _, b := range blocksarray {
-			blocks = append(blocks, types.StateBlockNID(b))
+	logrus.Warnf("Will convert %d snapshots...", snapshotcount)
+
+	batchsize := 100
+	batchoffset := 0
+
+	var lastsnapshot types.StateSnapshotNID
+	var newblocks types.StateBlockNIDs
+	var snapshots *sql.Rows
+
+	for ; batchoffset < snapshotcount; batchoffset += batchsize {
+		snapshots, err = tx.Query(`
+			SELECT
+				state_snapshot_nid,
+				room_nid,
+				state_block_nid,
+				ARRAY_AGG(event_nid) AS event_nids
+			FROM (
+				SELECT
+					_roomserver_state_snapshots.state_snapshot_nid,
+					_roomserver_state_snapshots.room_nid,
+					_roomserver_state_block.state_block_nid,
+					_roomserver_state_block.event_nid
+				FROM
+					_roomserver_state_snapshots
+					JOIN _roomserver_state_block ON _roomserver_state_block.state_block_nid = ANY (_roomserver_state_snapshots.state_block_nids)
+				WHERE
+					_roomserver_state_snapshots.state_snapshot_nid = ANY ( SELECT DISTINCT
+							_roomserver_state_snapshots.state_snapshot_nid
+						FROM
+							_roomserver_state_snapshots
+						LIMIT $1 OFFSET $2)) AS _roomserver_state_block
+			GROUP BY
+				state_snapshot_nid,
+				room_nid,
+				state_block_nid;
+		`, batchoffset, batchsize)
+		if err != nil {
+			return fmt.Errorf("tx.Query: %w", err)
 		}
 
-		var newblocks []types.StateBlockNID
-		for _, block := range blocks {
-			if err = func() error {
-				blockrows, berr := tx.Query(`SELECT event_nid FROM _roomserver_state_block WHERE state_block_nid = $1`, int64(block))
-				if berr != nil {
-					return fmt.Errorf("tx.Query (event nids from old block): %w", berr)
-				}
-				defer internal.CloseAndLogIfError(context.TODO(), blockrows, "rows.close() failed")
-				events := types.EventNIDs{}
-				for blockrows.Next() {
-					var event types.EventNID
-					if err = blockrows.Scan(&event); err != nil {
-						return fmt.Errorf("rows.Scan (event nids from old block): %w", err)
-					}
-					events = append(events, event)
-				}
-				events = events[:util.SortAndUnique(events)]
+		for snapshots.Next() {
+			logrus.Warnf("Performing %d to %d...", batchoffset, batchoffset+batchsize)
 
-				var blocknid types.StateBlockNID
-				err = tx.QueryRow(`
-					INSERT INTO roomserver_state_block (event_nids)
-						VALUES ($1)
-						ON CONFLICT (event_nids) DO UPDATE SET event_nids=$1
-						RETURNING state_block_nid
-				`, events).Scan(&blocknid)
-				if err != nil {
-					return fmt.Errorf("tx.QueryRow.Scan (insert new block): %w", err)
-				}
-				newblocks = append(newblocks, blocknid)
-				return nil
-			}(); err != nil {
-				return err
+			var snapshot types.StateSnapshotNID
+			var room types.RoomNID
+			var blocksarray pq.Int64Array
+			var eventsarray pq.Int64Array
+			if err = snapshots.Scan(&snapshot, &room, &blocksarray, &eventsarray); err != nil {
+				return fmt.Errorf("rows.Scan: %w", err)
 			}
 
-			var newsnapshot types.StateSnapshotNID
+			var events types.EventNIDs
+			for _, e := range eventsarray {
+				events = append(events, types.EventNID(e))
+			}
+			events = events[:util.SortAndUnique(events)]
+
+			var blocknid types.StateBlockNID
 			err = tx.QueryRow(`
+				INSERT INTO roomserver_state_block (event_nids)
+					VALUES ($1)
+					ON CONFLICT (event_nids) DO UPDATE SET event_nids=$1
+					RETURNING state_block_nid
+			`, events).Scan(&blocknid)
+			if err != nil {
+				return fmt.Errorf("tx.QueryRow.Scan (insert new block): %w", err)
+			}
+			newblocks = append(newblocks, blocknid)
+
+			if snapshot != lastsnapshot {
+				var newsnapshot types.StateSnapshotNID
+				err = tx.QueryRow(`
 				INSERT INTO roomserver_state_snapshots (room_nid, state_block_nids)
 					VALUES ($1, $2)
 					ON CONFLICT (room_nid, state_block_nids) DO UPDATE SET room_nid=$3
 					RETURNING state_snapshot_nid
-			`, room, newblocks, room).Scan(&newsnapshot)
-			if err != nil {
-				return fmt.Errorf("tx.QueryRow.Scan (insert new snapshot): %w", err)
-			}
+				`, room, newblocks, room).Scan(&newsnapshot)
+				if err != nil {
+					return fmt.Errorf("tx.QueryRow.Scan (insert new snapshot): %w", err)
+				}
 
-			_, err = tx.Exec(`UPDATE roomserver_events SET state_snapshot_nid=$1 WHERE state_snapshot_nid=$2`, newsnapshot, snapshot)
-			if err != nil {
-				return fmt.Errorf("tx.Exec (update events): %w", err)
-			}
-			_, err = tx.Exec(`UPDATE roomserver_rooms SET state_snapshot_nid=$1 WHERE state_snapshot_nid=$2`, newsnapshot, snapshot)
-			if err != nil {
-				return fmt.Errorf("tx.Exec (update rooms): %w", err)
-			}
+				_, err = tx.Exec(`UPDATE roomserver_events SET state_snapshot_nid=$1 WHERE state_snapshot_nid=$2`, newsnapshot, snapshot)
+				if err != nil {
+					return fmt.Errorf("tx.Exec (update events): %w", err)
+				}
+				_, err = tx.Exec(`UPDATE roomserver_rooms SET state_snapshot_nid=$1 WHERE state_snapshot_nid=$2`, newsnapshot, snapshot)
+				if err != nil {
+					return fmt.Errorf("tx.Exec (update rooms): %w", err)
+				}
 
-			fmt.Println("Rewrote snapshot", snapshot, "to", newsnapshot)
+				fmt.Println("Rewrote snapshot", snapshot, "to", newsnapshot)
+				newblocks = newblocks[:0]
+				lastsnapshot = snapshot
+			}
+		}
+
+		if err = snapshots.Close(); err != nil {
+			return fmt.Errorf("snapshots.Close: %w", err)
 		}
 	}
 
-	/*
-		if _, err = tx.Exec(`DROP TABLE _roomserver_state_snapshots;`); err != nil {
-			return fmt.Errorf("tx.Exec (delete old snapshot table): %w", err)
-		}
-		if _, err = tx.Exec(`DROP TABLE _roomserver_state_block;`); err != nil {
-			return fmt.Errorf("tx.Exec (delete old block table): %w", err)
-		}
-	*/
+	if _, err = tx.Exec(`DROP TABLE _roomserver_state_snapshots;`); err != nil {
+		return fmt.Errorf("tx.Exec (delete old snapshot table): %w", err)
+	}
+	if _, err = tx.Exec(`DROP TABLE _roomserver_state_block;`); err != nil {
+		return fmt.Errorf("tx.Exec (delete old block table): %w", err)
+	}
 
-	return nil
+	return fmt.Errorf("stopping here to revert changes")
 }
 
 func DownStateBlocksRefactor(tx *sql.Tx) error {
