@@ -84,6 +84,10 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 	var snapshotrows *sql.Rows
 
 	for batchoffset := 0; batchoffset < snapshotcount; batchoffset += batchsize {
+		if batchoffset > snapshotcount {
+			batchoffset -= batchoffset - snapshotcount
+		}
+
 		snapshotrows, err = tx.Query(`
 			SELECT
 				state_snapshot_nid,
