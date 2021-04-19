@@ -153,13 +153,18 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 			newblocks = append(newblocks, blocknid)
 
 			if snapshot.StateSnapshotNID != lastsnapshot {
+				var newblocksarray pq.Int64Array
+				for _, b := range newblocks {
+					newblocksarray = append(newblocksarray, int64(b))
+				}
+
 				var newsnapshot types.StateSnapshotNID
 				err = tx.QueryRow(`
 				INSERT INTO roomserver_state_snapshots (room_nid, state_block_nids)
 					VALUES ($1, $2)
 					ON CONFLICT (room_nid, state_block_nids) DO UPDATE SET room_nid=$1
 					RETURNING state_snapshot_nid
-				`, snapshot.RoomNID, newblocks).Scan(&newsnapshot)
+				`, snapshot.RoomNID, newblocksarray).Scan(&newsnapshot)
 				if err != nil {
 					return fmt.Errorf("tx.QueryRow.Scan (insert new snapshot): %w", err)
 				}
