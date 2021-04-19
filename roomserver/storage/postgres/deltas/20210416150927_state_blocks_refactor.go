@@ -64,7 +64,7 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 
 	var snapshotcount int
 	err = tx.QueryRow(`
-		SELECT COUNT(DISTINCT state_snapshot_nid) FROM roomserver_state_snapshots;
+		SELECT COUNT(DISTINCT state_snapshot_nid) FROM _roomserver_state_snapshots;
 	`).Scan(&snapshotcount)
 	if err != nil {
 		return fmt.Errorf("tx.QueryRow.Scan (count snapshots): %w", err)
