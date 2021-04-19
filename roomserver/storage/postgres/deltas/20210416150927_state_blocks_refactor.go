@@ -114,10 +114,10 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 			return fmt.Errorf("tx.Query: %w", err)
 		}
 
+		logrus.Warnf("Rewriting snapshots %d-%d of %d...", batchoffset, batchoffset+batchsize, snapshotcount)
 		var snapshots []stateBlockData
 
 		for snapshotrows.Next() {
-			logrus.Warnf("Rewriting snapshots %d-%d of %d...", batchoffset, batchoffset+batchsize, snapshotcount)
 			var snapshot stateBlockData
 			var eventsarray pq.Int64Array
 			if err = snapshotrows.Scan(&snapshot.StateSnapshotNID, &snapshot.RoomNID, &snapshot.StateBlockNID, &eventsarray); err != nil {
@@ -178,7 +178,7 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 					return fmt.Errorf("tx.Exec (update rooms): %w", err)
 				}
 
-				fmt.Println("Rewrote snapshot", snapshot, "to", newsnapshot)
+				fmt.Println("Rewrote snapshot", snapshot.StateSnapshotNID, "to", newsnapshot)
 				newblocks = newblocks[:0]
 				lastsnapshot = snapshot.StateSnapshotNID
 			}
