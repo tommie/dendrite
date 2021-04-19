@@ -49,7 +49,7 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 			-- Local numeric ID for this state data.
 			state_block_nid bigserial PRIMARY KEY,
 			event_nids bigint[] NOT NULL,
-			UNIQUE (event_nids)
+			CONSTRAINT roomserver_state_block_unique UNIQUE(sha512(event_nids::text::bytea))
 		);
 	`)
 	if err != nil {
@@ -61,7 +61,7 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 			state_snapshot_nid bigserial PRIMARY KEY,
 			room_nid bigint NOT NULL,
 			state_block_nids bigint[] NOT NULL,
-			UNIQUE (room_nid, state_block_nids)
+			CONSTRAINT roomserver_state_snapshot_unique UNIQUE(room_nid, sha512(state_block_nids::text::bytea))
 		);
 	`)
 	if err != nil {
