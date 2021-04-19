@@ -104,7 +104,7 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 				state_snapshot_nid,
 				room_nid,
 				state_block_nid;
-		`, batchoffset, batchsize)
+		`, batchsize, batchoffset)
 		if err != nil {
 			return fmt.Errorf("tx.Query: %w", err)
 		}
@@ -114,9 +114,9 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 
 			var snapshot types.StateSnapshotNID
 			var room types.RoomNID
-			var blocksarray pq.Int64Array
+			var block types.StateBlockNID
 			var eventsarray pq.Int64Array
-			if err = snapshots.Scan(&snapshot, &room, &blocksarray, &eventsarray); err != nil {
+			if err = snapshots.Scan(&snapshot, &room, &block, &eventsarray); err != nil {
 				return fmt.Errorf("rows.Scan: %w", err)
 			}
 
@@ -137,6 +137,13 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 				return fmt.Errorf("tx.QueryRow.Scan (insert new block): %w", err)
 			}
 			newblocks = append(newblocks, blocknid)
+
+			_, err = tx.Exec(`
+				DELETE FROM roomserver_state_block WHERE state_block_nid=$1
+			`, block)
+			if err != nil {
+				return fmt.Errorf("tx.Exec (delete old block): %w", err)
+			}
 
 			if snapshot != lastsnapshot {
 				var newsnapshot types.StateSnapshotNID
