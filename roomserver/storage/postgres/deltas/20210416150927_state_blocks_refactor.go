@@ -125,6 +125,10 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 				events = append(events, types.EventNID(e))
 			}
 			events = events[:util.SortAndUnique(events)]
+			eventsarray = eventsarray[:0]
+			for _, e := range events {
+				eventsarray = append(eventsarray, int64(e))
+			}
 
 			var blocknid types.StateBlockNID
 			err = tx.QueryRow(`
