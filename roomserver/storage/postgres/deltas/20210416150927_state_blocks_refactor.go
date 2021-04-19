@@ -76,16 +76,14 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 	if err != nil {
 		return fmt.Errorf("tx.QueryRow.Scan (count snapshots): %w", err)
 	}
-	logrus.Warnf("Will convert %d snapshots...", snapshotcount)
 
 	batchsize := 100
-	batchoffset := 0
 
 	var lastsnapshot types.StateSnapshotNID
 	var newblocks types.StateBlockNIDs
 	var snapshotrows *sql.Rows
 
-	for ; batchoffset < snapshotcount; batchoffset += batchsize {
+	for batchoffset := 0; batchoffset < snapshotcount; batchoffset += batchsize {
 		snapshotrows, err = tx.Query(`
 			SELECT
 				state_snapshot_nid,
@@ -119,7 +117,7 @@ func UpStateBlocksRefactor(tx *sql.Tx) error {
 		var snapshots []stateBlockData
 
 		for snapshotrows.Next() {
-			logrus.Warnf("Performing %d to %d...", batchoffset, batchoffset+batchsize)
+			logrus.Warnf("Rewriting snapshots %d-%d of %d...", batchoffset, batchoffset+batchsize, snapshotcount)
 			var snapshot stateBlockData
 			var eventsarray pq.Int64Array
 			if err = snapshotrows.Scan(&snapshot.StateSnapshotNID, &snapshot.RoomNID, &snapshot.StateBlockNID, &eventsarray); err != nil {
