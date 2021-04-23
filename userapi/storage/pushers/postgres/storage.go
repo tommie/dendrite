@@ -59,5 +59,6 @@ func NewDatabase(dbProperties *config.DatabaseOptions, serverName gomatrixserver
 func (d *Database) GetPushersByLocalpart(
 	ctx context.Context, localpart string,
 ) ([]api.Pusher, error) {
-	return d.pushers.selectPushersByLocalpart(ctx, nil, localpart, "")
+	return d.pushers.selectPushersByLocalpart(ctx, nil, localpart)
+}
 }
