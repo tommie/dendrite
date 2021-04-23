@@ -38,6 +38,7 @@ type UserInternalAPI interface {
 	QueryProfile(ctx context.Context, req *QueryProfileRequest, res *QueryProfileResponse) error
 	QueryAccessToken(ctx context.Context, req *QueryAccessTokenRequest, res *QueryAccessTokenResponse) error
 	QueryDevices(ctx context.Context, req *QueryDevicesRequest, res *QueryDevicesResponse) error
+	QueryPushers(ctx context.Context, req *QueryPushersRequest, res *QueryPushersResponse) error
 	QueryAccountData(ctx context.Context, req *QueryAccountDataRequest, res *QueryAccountDataResponse) error
 	QueryDeviceInfos(ctx context.Context, req *QueryDeviceInfosRequest, res *QueryDeviceInfosResponse) error
 	QuerySearchProfiles(ctx context.Context, req *QuerySearchProfilesRequest, res *QuerySearchProfilesResponse) error
@@ -208,6 +209,17 @@ type QueryDevicesResponse struct {
 	Devices    []Device
 }
 
+// QueryPushersRequest is the request for QueryPushers
+type QueryPushersRequest struct {
+	UserID string
+}
+
+// QueryPushersResponse is the response for QueryPushers
+type QueryPushersResponse struct {
+	UserExists bool
+	Pushers    []Pusher
+}
+
 // QueryProfileRequest is the request for QueryProfile
 type QueryProfileRequest struct {
 	// The user ID to query
@@ -347,6 +359,25 @@ type Device struct {
 	// If the device is for an appservice user,
 	// this is the appservice ID.
 	AppserviceID string
+}
+
+// Pusher represents a push notification subscriber
+type Pusher struct {
+	ID                string
+	UserID            string
+	PushKey           string
+	Kind              string
+	AppID             string
+	AppDisplayName    string
+	DeviceDisplayName string
+	ProfileTag        string
+	Language          string
+	Data              PusherData
+}
+
+type PusherData struct {
+	URL    string
+	Format string
 }
 
 // Account represents a Matrix account on this home server.
