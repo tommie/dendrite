@@ -42,6 +42,7 @@ const (
 	QueryProfilePath        = "/userapi/queryProfile"
 	QueryAccessTokenPath    = "/userapi/queryAccessToken"
 	QueryDevicesPath        = "/userapi/queryDevices"
+	QueryPushersPath        = "/userapi/queryPushers"
 	QueryAccountDataPath    = "/userapi/queryAccountData"
 	QueryDeviceInfosPath    = "/userapi/queryDeviceInfos"
 	QuerySearchProfilesPath = "/userapi/querySearchProfiles"
@@ -201,6 +202,14 @@ func (h *httpUserInternalAPI) QueryDevices(ctx context.Context, req *api.QueryDe
 	defer span.Finish()
 
 	apiURL := h.apiURL + QueryDevicesPath
+	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, req, res)
+}
+
+func (h *httpUserInternalAPI) QueryPushers(ctx context.Context, req *api.QueryPushersRequest, res *api.QueryPushersResponse) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "QueryPushers")
+	defer span.Finish()
+
+	apiURL := h.apiURL + QueryPushersPath
 	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, req, res)
 }
 
