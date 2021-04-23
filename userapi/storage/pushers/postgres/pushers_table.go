@@ -55,7 +55,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS pusher_localpart_pushkey_idx ON pusher_pushers
 `
 
 const selectPushersByLocalpartSQL = "" +
-	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, language FROM pusher_pushers WHERE localpart = $1"
+	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, language, url, format FROM pusher_pushers WHERE localpart = $1"
 
 type pushersStatements struct {
 	selectPushersByLocalpartStmt *sql.Stmt
