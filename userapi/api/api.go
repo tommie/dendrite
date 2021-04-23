@@ -363,7 +363,6 @@ type Device struct {
 
 // Pusher represents a push notification subscriber
 type Pusher struct {
-	ID                string
 	UserID            string
 	PushKey           string
 	Kind              string

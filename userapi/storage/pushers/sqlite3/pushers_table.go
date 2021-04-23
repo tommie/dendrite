@@ -31,21 +31,21 @@ const pushersSchema = `
 
 -- Stores data about pushers.
 CREATE TABLE IF NOT EXISTS pusher_pushers (
-    access_token TEXT PRIMARY KEY,
-    session_id INTEGER,
-    pusher_id TEXT ,
-    localpart TEXT ,
-    created_ts BIGINT,
-    display_name TEXT,
-    last_seen_ts BIGINT,
-    ip TEXT,
-    user_agent TEXT,
+		pushkey VARCHAR(512) PRIMARY KEY,
+    kind TEXT ,
+    app_id VARCHAR(64) ,
+    app_display_name TEXT,
+    device_display_name TEXT,
+    profile_tag TEXT,
+    language TEXT,
+    url TEXT,
+		format TEXT,
 
-		UNIQUE (localpart, pusher_id)
+		UNIQUE (localpart, pushkey)
 );
 `
 const selectPushersByLocalpartSQL = "" +
-	"SELECT pusher_id, display_name, last_seen_ts, ip, user_agent FROM pusher_pushers WHERE localpart = $1 AND pusher_id != $2"
+	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, language FROM pusher_pushers WHERE localpart = $1"
 
 type pushersStatements struct {
 	db                           *sql.DB
@@ -70,29 +70,52 @@ func (s *pushersStatements) prepare(db *sql.DB, writer sqlutil.Writer, server go
 }
 
 func (s *pushersStatements) selectPushersByLocalpart(
-	ctx context.Context, txn *sql.Tx, localpart, exceptPusherID string,
+	ctx context.Context, txn *sql.Tx, localpart string,
 ) ([]api.Pusher, error) {
 	pushers := []api.Pusher{}
-	rows, err := sqlutil.TxStmt(txn, s.selectPushersByLocalpartStmt).QueryContext(ctx, localpart, exceptPusherID)
+	rows, err := sqlutil.TxStmt(txn, s.selectPushersByLocalpartStmt).QueryContext(ctx, localpart)
 
 	if err != nil {
 		return pushers, err
 	}
 
 	for rows.Next() {
-		var dev api.Pusher
-		var lastseents sql.NullInt64
-		var id, displayname, ip, useragent sql.NullString
-		err = rows.Scan(&id, &displayname, &lastseents, &ip, &useragent)
+		var pusher api.Pusher
+		var pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, language, url, format sql.NullString
+		err = rows.Scan(&pushkey, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &language, &url, &format)
 		if err != nil {
 			return pushers, err
 		}
-		if id.Valid {
-			dev.ID = id.String
+		if pushkey.Valid {
+			pusher.PushKey = pushkey.String
+		}
+		if kind.Valid {
+			pusher.Kind = kind.String
+		}
+		if appid.Valid {
+			pusher.AppID = appid.String
+		}
+		if appdisplayname.Valid {
+			pusher.AppDisplayName = appdisplayname.String
+		}
+		if devicedisplayname.Valid {
+			pusher.DeviceDisplayName = devicedisplayname.String
+		}
+		if profiletag.Valid {
+			pusher.ProfileTag = profiletag.String
+		}
+		if language.Valid {
+			pusher.Language = language.String
+		}
+		if url.Valid && format.Valid {
+			pusher.Data = api.PusherData{
+				URL:    url.String,
+				Format: format.String,
+			}
 		}
 
-		dev.UserID = userutil.MakeUserID(localpart, s.serverName)
-		pushers = append(pushers, dev)
+		pusher.UserID = userutil.MakeUserID(localpart, s.serverName)
+		pushers = append(pushers, pusher)
 	}
 
 	return pushers, nil

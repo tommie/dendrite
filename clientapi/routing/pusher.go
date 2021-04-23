@@ -17,6 +17,7 @@ package routing
 import (
 	"net/http"
 
+	"github.com/matrix-org/dendrite/clientapi/httputil"
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/userapi/api"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
@@ -25,7 +26,6 @@ import (
 
 // https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-pushers
 type pusherJSON struct {
-	PusherID          string         `json:"pusher_id"`
 	PushKey           string         `json:"pushkey"`
 	Kind              string         `json:"kind"`
 	AppID             string         `json:"app_id"`
@@ -45,13 +45,13 @@ type pusherDataJSON struct {
 	Format string `json:"format"`
 }
 
-// GetPushersByLocalpart handles /pushers
+// GetPushersByLocalpart handles /_matrix/client/r0/pushers
 func GetPushersByLocalpart(
-	req *http.Request, userAPI userapi.UserInternalAPI, pusher *api.Pusher,
+	req *http.Request, userAPI userapi.UserInternalAPI, device *api.Device,
 ) util.JSONResponse {
 	var queryRes userapi.QueryPushersResponse
 	err := userAPI.QueryPushers(req.Context(), &userapi.QueryPushersRequest{
-		UserID: pusher.UserID,
+		UserID: device.UserID,
 	}, &queryRes)
 	if err != nil {
 		util.GetLogger(req.Context()).WithError(err).Error("QueryPushers failed")
@@ -62,7 +62,6 @@ func GetPushersByLocalpart(
 
 	for _, pusher := range queryRes.Pushers {
 		res.Pushers = append(res.Pushers, pusherJSON{
-			PusherID:          pusher.ID,
 			PushKey:           pusher.PushKey,
 			Kind:              pusher.Kind,
 			AppID:             pusher.AppID,

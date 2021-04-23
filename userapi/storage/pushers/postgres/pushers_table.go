@@ -30,28 +30,32 @@ const pushersSchema = `
 CREATE TABLE IF NOT EXISTS pusher_pushers (
 	-- The Matrix user ID localpart for this pusher
 	localpart TEXT NOT NULL PRIMARY KEY,
-	-- The push key for this pusher
-	pushkey TEXT,
-	-- The pusher kind
+	--  This is a unique identifier for this pusher. See /set for more detail. Max length, 512 bytes.
+	pushkey VARCHAR(512) NOT NULL,
+	-- The kind of pusher. "http" is a pusher that sends HTTP pokes.
 	kind TEXT,
-	-- The pusher Application ID
-	app_id TEXT,
-	-- The pusher application display name, human friendlier than app_id and updatable
+	-- This is a reverse-DNS style identifier for the application. Max length, 64 chars.
+	app_id VARCHAR(64),
+	-- A string that will allow the user to identify what application owns this pusher.
 	app_display_name TEXT,
-	-- The pusher device display name,
+	-- A string that will allow the user to identify what device owns this pusher.
 	device_display_name TEXT,
-	-- The pusher profile tag,
+	-- This string determines which set of device specific rules this pusher executes.
 	profile_tag TEXT,
-	-- The pusher preferred language,
-	language TEXT,
+	-- The preferred language for receiving notifications (e.g. 'en' or 'en-US')
+	lang TEXT,
+	-- Required if kind is http. The URL to use to send notifications to.
+	url TEXT,
+	-- The format to use when sending notifications to the Push Gateway.
+	format TEXT,
 );
 
 -- Pusher IDs must be unique for a given user.
-CREATE UNIQUE INDEX IF NOT EXISTS pusher_localpart_id_idx ON pusher_pushers(localpart, pusher_id);
+CREATE UNIQUE INDEX IF NOT EXISTS pusher_localpart_pushkey_idx ON pusher_pushers(localpart, pushkey);
 `
 
 const selectPushersByLocalpartSQL = "" +
-	"SELECT pusher_id, display_name, last_seen_ts, ip, user_agent FROM pusher_pushers WHERE localpart = $1 AND pusher_id != $2"
+	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, language FROM pusher_pushers WHERE localpart = $1"
 
 type pushersStatements struct {
 	selectPushersByLocalpartStmt *sql.Stmt
@@ -67,15 +71,18 @@ func (s *pushersStatements) prepare(db *sql.DB, server gomatrixserverlib.ServerN
 	if s.selectPushersByLocalpartStmt, err = db.Prepare(selectPushersByLocalpartSQL); err != nil {
 		return
 	}
+	if s.selectPushersByPushkeyStmt, err = db.Prepare(selectPushersByPushkeySQL); err != nil {
+		return
+	}
 	s.serverName = server
 	return
 }
 
 func (s *pushersStatements) selectPushersByLocalpart(
-	ctx context.Context, txn *sql.Tx, localpart, exceptPusherID string,
+	ctx context.Context, txn *sql.Tx, localpart string,
 ) ([]api.Pusher, error) {
 	pushers := []api.Pusher{}
-	rows, err := sqlutil.TxStmt(txn, s.selectPushersByLocalpartStmt).QueryContext(ctx, localpart, exceptPusherID)
+	rows, err := sqlutil.TxStmt(txn, s.selectPushersByLocalpartStmt).QueryContext(ctx, localpart)
 
 	if err != nil {
 		return pushers, err
@@ -84,13 +91,10 @@ func (s *pushersStatements) selectPushersByLocalpart(
 
 	for rows.Next() {
 		var pusher api.Pusher
-		var id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, language, url, format sql.NullString
-		err = rows.Scan(&id, &pushkey, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &language, &url, &format)
+		var pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, language, url, format sql.NullString
+		err = rows.Scan(&pushkey, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &language, &url, &format)
 		if err != nil {
 			return pushers, err
-		}
-		if id.Valid {
-			pusher.ID = id.String
 		}
 		if pushkey.Valid {
 			pusher.PushKey = pushkey.String

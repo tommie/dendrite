@@ -833,6 +833,11 @@ func Setup(
 		}),
 	).Methods(http.MethodPost, http.MethodOptions)
 
+	r0mux.Handle("/pushers",
+		httputil.MakeAuthAPI("get_pushers", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			return GetPushersByLocalpart(req, userAPI, device)
+		}),
+	).Methods(http.MethodGet, http.MethodOptions)
 	// Stub implementations for sytest
 	r0mux.Handle("/events",
 		httputil.MakeExternalAPI("events", func(req *http.Request) util.JSONResponse {
