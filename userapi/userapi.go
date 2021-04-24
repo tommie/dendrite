@@ -45,7 +45,7 @@ func NewInternalAPI(
 
 	pusherDB, err := pushers.NewDatabase(&cfg.PusherDatabase, cfg.Matrix.ServerName)
 	if err != nil {
-		logrus.WithError(err).Panicf("failed to connect to device db")
+		logrus.WithError(err).Panicf("failed to connect to pusher db")
 	}
 
 	return &internal.UserInternalAPI{

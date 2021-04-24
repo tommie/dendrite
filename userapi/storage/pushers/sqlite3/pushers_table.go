@@ -20,32 +20,31 @@ import (
 
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/userapi/api"
+	"github.com/sirupsen/logrus"
 
 	"github.com/matrix-org/dendrite/clientapi/userutil"
 	"github.com/matrix-org/gomatrixserverlib"
 )
 
 const pushersSchema = `
--- This sequence is used for automatic allocation of session_id.
--- CREATE SEQUENCE IF NOT EXISTS pusher_session_id_seq START 1;
-
 -- Stores data about pushers.
 CREATE TABLE IF NOT EXISTS pusher_pushers (
-		pushkey VARCHAR(512) PRIMARY KEY,
-    kind TEXT ,
-    app_id VARCHAR(64) ,
-    app_display_name TEXT,
-    device_display_name TEXT,
-    profile_tag TEXT,
-    language TEXT,
-    url TEXT,
-		format TEXT,
+	localpart TEXT PRIMARY KEY,
+	pushkey VARCHAR(512),
+	kind TEXT,
+	app_id VARCHAR(64),
+	app_display_name TEXT,
+	device_display_name TEXT,
+	profile_tag TEXT,
+	lang TEXT,
+	url TEXT,
+	format TEXT,
 
-		UNIQUE (localpart, pushkey)
+	UNIQUE (localpart, pushkey)
 );
 `
 const selectPushersByLocalpartSQL = "" +
-	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, language, url, format FROM pusher_pushers WHERE localpart = $1"
+	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1"
 
 type pushersStatements struct {
 	db                           *sql.DB
@@ -63,6 +62,8 @@ func (s *pushersStatements) prepare(db *sql.DB, writer sqlutil.Writer, server go
 	s.db = db
 	s.writer = writer
 	if s.selectPushersByLocalpartStmt, err = db.Prepare(selectPushersByLocalpartSQL); err != nil {
+		logrus.WithError(err).Debug("💥💥💥 Preparing selectPushersByLocalpartStmt...")
+		return
 		return
 	}
 	s.serverName = server
@@ -81,8 +82,8 @@ func (s *pushersStatements) selectPushersByLocalpart(
 
 	for rows.Next() {
 		var pusher api.Pusher
-		var pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, language, url, format sql.NullString
-		err = rows.Scan(&pushkey, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &language, &url, &format)
+		var pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format sql.NullString
+		err = rows.Scan(&pushkey, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &lang, &url, &format)
 		if err != nil {
 			return pushers, err
 		}
@@ -104,8 +105,8 @@ func (s *pushersStatements) selectPushersByLocalpart(
 		if profiletag.Valid {
 			pusher.ProfileTag = profiletag.String
 		}
-		if language.Valid {
-			pusher.Language = language.String
+		if lang.Valid {
+			pusher.Language = lang.String
 		}
 		if url.Valid && format.Valid {
 			pusher.Data = api.PusherData{
