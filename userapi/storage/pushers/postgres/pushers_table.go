@@ -30,7 +30,11 @@ const pushersSchema = `
 CREATE TABLE IF NOT EXISTS pusher_pushers (
 	-- The Matrix user ID localpart for this pusher
 	localpart TEXT NOT NULL PRIMARY KEY,
-	--  This is a unique identifier for this pusher. See /set for more detail. Max length, 512 bytes.
+	-- This is a unique identifier for this pusher. 
+	-- The value you should use for this is the routing or destination address information for the notification, for example, 
+	-- the APNS token for APNS or the Registration ID for GCM. If your notification client has no such concept, use any unique identifier. 
+	-- If the kind is "email", this is the email address to send notifications to.
+	-- Max length, 512 bytes.
 	pushkey VARCHAR(512) NOT NULL,
 	-- The kind of pusher. "http" is a pusher that sends HTTP pokes.
 	kind TEXT,
@@ -47,15 +51,15 @@ CREATE TABLE IF NOT EXISTS pusher_pushers (
 	-- Required if kind is http. The URL to use to send notifications to.
 	url TEXT,
 	-- The format to use when sending notifications to the Push Gateway.
-	format TEXT,
+	format TEXT
 );
 
--- Pusher IDs must be unique for a given user.
+-- Pushkey must be unique for a given user.
 CREATE UNIQUE INDEX IF NOT EXISTS pusher_localpart_pushkey_idx ON pusher_pushers(localpart, pushkey);
 `
 
 const selectPushersByLocalpartSQL = "" +
-	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, language, url, format FROM pusher_pushers WHERE localpart = $1"
+	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1"
 
 type pushersStatements struct {
 	selectPushersByLocalpartStmt *sql.Stmt
@@ -91,8 +95,8 @@ func (s *pushersStatements) selectPushersByLocalpart(
 
 	for rows.Next() {
 		var pusher api.Pusher
-		var pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, language, url, format sql.NullString
-		err = rows.Scan(&pushkey, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &language, &url, &format)
+		var pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format sql.NullString
+		err = rows.Scan(&pushkey, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &lang, &url, &format)
 		if err != nil {
 			return pushers, err
 		}
@@ -114,8 +118,8 @@ func (s *pushersStatements) selectPushersByLocalpart(
 		if profiletag.Valid {
 			pusher.ProfileTag = profiletag.String
 		}
-		if language.Valid {
-			pusher.Language = language.String
+		if lang.Valid {
+			pusher.Language = lang.String
 		}
 		if url.Valid && format.Valid {
 			pusher.Data = api.PusherData{
