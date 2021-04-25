@@ -61,4 +61,10 @@ func (d *Database) GetPushersByLocalpart(
 ) ([]api.Pusher, error) {
 	return d.pushers.selectPushersByLocalpart(ctx, nil, localpart)
 }
+
+// GetPushersByPushkey returns the pusers matching the given localpart.
+func (d *Database) GetPushersByPushkey(
+	ctx context.Context, localpart, pushkey string,
+) (*api.Pusher, error) {
+	return d.pushers.selectPushersByPushkey(ctx, localpart, pushkey)
 }

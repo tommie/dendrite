@@ -808,6 +808,16 @@ func Setup(
 			return GetPushersByLocalpart(req, userAPI, device)
 		}),
 	).Methods(http.MethodGet, http.MethodOptions)
+
+	r0mux.Handle("/pushers/set",
+		httputil.MakeAuthAPI("set_pushers", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			if r := rateLimits.rateLimit(req); r != nil {
+				return *r
+			}
+			return SetPushersByLocalpart(req, userAPI, device)
+		}),
+	).Methods(http.MethodPost, http.MethodOptions)
+
 	// Stub implementations for sytest
 	r0mux.Handle("/events",
 		httputil.MakeExternalAPI("events", func(req *http.Request) util.JSONResponse {
