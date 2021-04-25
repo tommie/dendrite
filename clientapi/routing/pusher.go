@@ -78,3 +78,28 @@ func GetPushersByLocalpart(
 		JSON: res,
 	}
 }
+
+// SetPushersByLocalpart handles /_matrix/client/r0/pushers/set
+// This endpoint allows the creation, modification and deletion of pushers for this user ID.
+// The behaviour of this endpoint varies depending on the values in the JSON body.
+func SetPusherByLocalpart(
+	req *http.Request, userAPI userapi.UserInternalAPI, device *api.Device,
+) util.JSONResponse {
+
+	body := pusherJSON{}
+
+	if resErr := httputil.UnmarshalJSONRequest(req, &body); resErr != nil {
+		return *resErr
+	}
+
+	// TODO:
+	// 1. if kind == null, GetPusherByPushkey and delete it! 🗑
+	// 2. if GetPusherByPushkey returns existing Pusher, update it with the received body
+	// 3. if GetPusherByPushkey returns nothing, create a new Pusher with the received body
+
+	res := body
+	return util.JSONResponse{
+		Code: http.StatusOK,
+		JSON: res,
+	}
+}

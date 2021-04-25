@@ -61,8 +61,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS pusher_localpart_pushkey_idx ON pusher_pushers
 const selectPushersByLocalpartSQL = "" +
 	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1"
 
+const selectPusherByPushkeySQL = "" +
+	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1 AND pushkey = $2"
+
 type pushersStatements struct {
 	selectPushersByLocalpartStmt *sql.Stmt
+	selectPusherByPushkeyStmt    *sql.Stmt
 	serverName                   gomatrixserverlib.ServerName
 }
 
@@ -75,7 +79,7 @@ func (s *pushersStatements) prepare(db *sql.DB, server gomatrixserverlib.ServerN
 	if s.selectPushersByLocalpartStmt, err = db.Prepare(selectPushersByLocalpartSQL); err != nil {
 		return
 	}
-	if s.selectPushersByPushkeyStmt, err = db.Prepare(selectPushersByPushkeySQL); err != nil {
+	if s.selectPusherByPushkeyStmt, err = db.Prepare(selectPusherByPushkeySQL); err != nil {
 		return
 	}
 	s.serverName = server
@@ -133,4 +137,48 @@ func (s *pushersStatements) selectPushersByLocalpart(
 	}
 
 	return pushers, rows.Err()
+}
+
+func (s *pushersStatements) selectPusherByPushkey(
+	ctx context.Context, localpart, pushkey string,
+) (*api.Pusher, error) {
+	var pusher api.Pusher
+	var id, key, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format sql.NullString
+
+	stmt := s.selectPusherByPushkeyStmt
+	err := stmt.QueryRowContext(ctx, localpart, pushkey).Scan(&id, &key, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &lang, &url, &format)
+
+	if err == nil {
+		if key.Valid {
+			pusher.PushKey = key.String
+		}
+		if kind.Valid {
+			pusher.Kind = kind.String
+		}
+		if appid.Valid {
+			pusher.AppID = appid.String
+		}
+		if appdisplayname.Valid {
+			pusher.AppDisplayName = appdisplayname.String
+		}
+		if devicedisplayname.Valid {
+			pusher.DeviceDisplayName = devicedisplayname.String
+		}
+		if profiletag.Valid {
+			pusher.ProfileTag = profiletag.String
+		}
+		if lang.Valid {
+			pusher.Language = lang.String
+		}
+		if url.Valid && format.Valid {
+			pusher.Data = api.PusherData{
+				URL:    url.String,
+				Format: format.String,
+			}
+		}
+
+		pusher.UserID = userutil.MakeUserID(localpart, s.serverName)
+	}
+
+	return &pusher, err
 }

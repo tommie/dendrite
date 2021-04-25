@@ -1,4 +1,4 @@
-// Copyright 2017 Vector Creations Ltd
+// Copyright 2021 Dan Peleg <dan@globekeeper.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,4 +63,10 @@ func (d *Database) GetPushersByLocalpart(
 ) ([]api.Pusher, error) {
 	return d.pushers.selectPushersByLocalpart(ctx, nil, localpart)
 }
+
+// GetPushersByLocalpart returns the pushers matching the given localpart.
+func (d *Database) GetPushersByPushkey(
+	ctx context.Context, localpart, pushkey string,
+) (*api.Pusher, error) {
+	return d.pushers.selectPusherByPushkey(ctx, localpart, pushkey)
 }

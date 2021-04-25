@@ -1,4 +1,4 @@
-// Copyright 2017 Vector Creations Ltd
+// Copyright 2021 Dan Peleg <dan@globekeeper.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/userapi/api"
-	"github.com/sirupsen/logrus"
 
 	"github.com/matrix-org/dendrite/clientapi/userutil"
 	"github.com/matrix-org/gomatrixserverlib"
@@ -46,10 +45,14 @@ CREATE TABLE IF NOT EXISTS pusher_pushers (
 const selectPushersByLocalpartSQL = "" +
 	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1"
 
+const selectPusherByPushkeySQL = "" +
+	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1 AND pushkey = $2"
+
 type pushersStatements struct {
 	db                           *sql.DB
 	writer                       sqlutil.Writer
 	selectPushersByLocalpartStmt *sql.Stmt
+	selectPusherByPushkeyStmt    *sql.Stmt
 	serverName                   gomatrixserverlib.ServerName
 }
 
@@ -62,8 +65,9 @@ func (s *pushersStatements) prepare(db *sql.DB, writer sqlutil.Writer, server go
 	s.db = db
 	s.writer = writer
 	if s.selectPushersByLocalpartStmt, err = db.Prepare(selectPushersByLocalpartSQL); err != nil {
-		logrus.WithError(err).Debug("💥💥💥 Preparing selectPushersByLocalpartStmt...")
 		return
+	}
+	if s.selectPusherByPushkeyStmt, err = db.Prepare(selectPusherByPushkeySQL); err != nil {
 		return
 	}
 	s.serverName = server
@@ -120,4 +124,46 @@ func (s *pushersStatements) selectPushersByLocalpart(
 	}
 
 	return pushers, nil
+}
+
+// selectPusherByID retrieves a pusher from the database with the given user
+// localpart and pusherID
+func (s *pushersStatements) selectPusherByPushkey(
+	ctx context.Context, localpart, pushkey string,
+) (*api.Pusher, error) {
+	var pusher api.Pusher
+	var id, key, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format sql.NullString
+	stmt := s.selectPusherByPushkeyStmt
+	err := stmt.QueryRowContext(ctx, localpart, pushkey).Scan(&id, &key, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &lang, &url, &format)
+	if err == nil {
+		pusher.UserID = userutil.MakeUserID(localpart, s.serverName)
+		if key.Valid {
+			pusher.PushKey = key.String
+		}
+		if kind.Valid {
+			pusher.Kind = kind.String
+		}
+		if appid.Valid {
+			pusher.AppID = appid.String
+		}
+		if appdisplayname.Valid {
+			pusher.AppDisplayName = appdisplayname.String
+		}
+		if devicedisplayname.Valid {
+			pusher.DeviceDisplayName = devicedisplayname.String
+		}
+		if profiletag.Valid {
+			pusher.ProfileTag = profiletag.String
+		}
+		if lang.Valid {
+			pusher.Language = lang.String
+		}
+		if url.Valid && format.Valid {
+			pusher.Data = api.PusherData{
+				URL:    url.String,
+				Format: format.String,
+			}
+		}
+	}
+	return &pusher, err
 }
