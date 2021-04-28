@@ -956,3 +956,23 @@ func (d *Database) GetRoomReceipts(ctx context.Context, roomIDs []string, stream
 	_, receipts, err := d.Receipts.SelectRoomReceiptsAfter(ctx, roomIDs, streamPos)
 	return receipts, err
 }
+
+func (d *Database) GetPaginatedRooms(ctx context.Context, userID string, offset, count int) ([]string, error) {
+	memberships, err := d.Memberships.SelectMemberships(ctx, nil, userID)
+	if err != nil {
+		return nil, fmt.Errorf("d.Memberships.SelectMemberships: %w", err)
+	}
+	rooms := []string{}
+	for roomID := range memberships {
+		rooms = append(rooms, roomID)
+	}
+	positions, err := d.OutputEvents.BulkSelectMaxStreamPositions(ctx, nil, rooms, offset, count)
+	if err != nil {
+		return nil, fmt.Errorf("d.Events.BulkSelectMaxStreamPositions: %w", err)
+	}
+	rooms = rooms[:0]
+	for roomID := range positions {
+		rooms = append(rooms, roomID)
+	}
+	return rooms, nil
+}

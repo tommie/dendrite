@@ -69,6 +69,18 @@ func newSyncRequest(req *http.Request, device userapi.Device, syncDB storage.Dat
 		}
 	}
 
+	switch req.URL.Query().Get("paginate_by") {
+	case "latest":
+		offset, _ := strconv.Atoi(req.URL.Query().Get("offset"))
+		count, _ := strconv.Atoi(req.URL.Query().Get("count"))
+		rooms, err := syncDB.GetPaginatedRooms(req.Context(), device.UserID, offset, count)
+		if err != nil {
+			return nil, fmt.Errorf("syncDB.GetPaginatedRooms: %w", err)
+		}
+		filter.Room.Rooms = rooms
+		logrus.Warnf("Filtering by rooms: %v", rooms)
+	}
+
 	logger := util.GetLogger(req.Context()).WithFields(logrus.Fields{
 		"user_id":   device.UserID,
 		"device_id": device.ID,

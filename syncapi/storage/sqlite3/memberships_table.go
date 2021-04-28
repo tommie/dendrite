@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/syncapi/storage/tables"
 	"github.com/matrix-org/dendrite/syncapi/types"
@@ -63,9 +64,14 @@ const selectMembershipSQL = "" +
 	" ORDER BY stream_pos DESC" +
 	" LIMIT 1"
 
+const selectMembershipsSQL = "" +
+	"SELECT room_id, membership FROM syncapi_memberships" +
+	" WHERE user_id = $1"
+
 type membershipsStatements struct {
-	db                   *sql.DB
-	upsertMembershipStmt *sql.Stmt
+	db                    *sql.DB
+	upsertMembershipStmt  *sql.Stmt
+	selectMembershipsStmt *sql.Stmt
 }
 
 func NewSqliteMembershipsTable(db *sql.DB) (tables.Memberships, error) {
@@ -77,6 +83,9 @@ func NewSqliteMembershipsTable(db *sql.DB) (tables.Memberships, error) {
 		return nil, err
 	}
 	if s.upsertMembershipStmt, err = db.Prepare(upsertMembershipSQL); err != nil {
+		return nil, err
+	}
+	if s.selectMembershipsStmt, err = db.Prepare(selectMembershipsSQL); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -116,4 +125,25 @@ func (s *membershipsStatements) SelectMembership(
 	}
 	err = sqlutil.TxStmt(txn, stmt).QueryRowContext(ctx, params...).Scan(&eventID, &streamPos, &topologyPos)
 	return
+}
+
+func (s *membershipsStatements) SelectMemberships(
+	ctx context.Context, txn *sql.Tx, userID string,
+) (map[string]string, error) {
+	var roomID, membership string
+	result := map[string]string{}
+	stmt := sqlutil.TxStmt(txn, s.selectMembershipsStmt)
+	rows, err := stmt.QueryContext(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("stmt.QueryContext: %w", err)
+	}
+	defer internal.CloseAndLogIfError(ctx, rows, "failed to close rows")
+	for rows.Next() {
+		err = rows.Scan(&roomID, &membership)
+		if err != nil {
+			return nil, fmt.Errorf("rows.Scan: %w", err)
+		}
+		result[roomID] = membership
+	}
+	return result, nil
 }

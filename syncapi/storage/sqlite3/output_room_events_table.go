@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/roomserver/api"
@@ -89,6 +90,13 @@ const selectStateInRangeSQL = "" +
 
 const deleteEventsForRoomSQL = "" +
 	"DELETE FROM syncapi_output_room_events WHERE room_id = $1"
+
+const bulkSelectMaxStreamPositionsSQL = "" +
+	"SELECT room_id, MAX(id) AS id FROM syncapi_output_room_events" +
+	" WHERE room_id IN ($1)" +
+	" GROUP BY room_id" +
+	" ORDER BY id DESC" +
+	" LIMIT $2 OFFSET $3"
 
 type outputRoomEventsStatements struct {
 	db                      *sql.DB
@@ -422,6 +430,40 @@ func (s *outputRoomEventsStatements) DeleteEventsForRoom(
 ) (err error) {
 	_, err = sqlutil.TxStmt(txn, s.deleteEventsForRoomStmt).ExecContext(ctx, roomID)
 	return err
+}
+
+func (s *outputRoomEventsStatements) BulkSelectMaxStreamPositions(
+	ctx context.Context, txn *sql.Tx, roomIDs []string, offset, count int,
+) (map[string]types.StreamPosition, error) {
+	origSQL := strings.Replace(bulkSelectMaxStreamPositionsSQL, "$2", fmt.Sprintf("$%d", len(roomIDs)+1), 1)
+	origSQL = strings.Replace(origSQL, "$3", fmt.Sprintf("$%d", len(roomIDs)+2), 1)
+	origSQL = strings.Replace(origSQL, "($1)", sqlutil.QueryVariadic(len(roomIDs)), 1)
+	origStmt, err := s.db.Prepare(origSQL)
+	if err != nil {
+		return nil, fmt.Errorf("s.db.Prepare: %w", err)
+	}
+	params := []interface{}{}
+	for _, roomID := range roomIDs {
+		params = append(params, roomID)
+	}
+	params = append(params, count, offset)
+	result := map[string]types.StreamPosition{}
+	stmt := sqlutil.TxStmt(txn, origStmt)
+	rows, err := stmt.QueryContext(ctx, params...)
+	if err != nil {
+		return nil, fmt.Errorf("stmt.QueryContext: %w", err)
+	}
+	defer internal.CloseAndLogIfError(ctx, rows, "failed to close rows")
+	for rows.Next() {
+		var roomID string
+		var pos types.StreamPosition
+		err = rows.Scan(&roomID, &pos)
+		if err != nil {
+			return nil, fmt.Errorf("rows.Scan: %w", err)
+		}
+		result[roomID] = pos
+	}
+	return result, nil
 }
 
 func rowsToStreamEvents(rows *sql.Rows) ([]types.StreamEvent, error) {

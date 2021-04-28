@@ -19,6 +19,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"sort"
 
 	"github.com/matrix-org/dendrite/internal"
@@ -127,19 +128,27 @@ const selectStateInRangeSQL = "" +
 	" ORDER BY id ASC" +
 	" LIMIT $8"
 
+const bulkSelectMaxStreamPositionsSQL = "" +
+	"SELECT room_id, MAX(id) AS id FROM syncapi_output_room_events" +
+	" WHERE room_id = ANY($1)" +
+	" GROUP BY room_id" +
+	" ORDER BY id DESC" +
+	" OFFSET $2 LIMIT $3"
+
 const deleteEventsForRoomSQL = "" +
 	"DELETE FROM syncapi_output_room_events WHERE room_id = $1"
 
 type outputRoomEventsStatements struct {
-	insertEventStmt               *sql.Stmt
-	selectEventsStmt              *sql.Stmt
-	selectMaxEventIDStmt          *sql.Stmt
-	selectRecentEventsStmt        *sql.Stmt
-	selectRecentEventsForSyncStmt *sql.Stmt
-	selectEarlyEventsStmt         *sql.Stmt
-	selectStateInRangeStmt        *sql.Stmt
-	updateEventJSONStmt           *sql.Stmt
-	deleteEventsForRoomStmt       *sql.Stmt
+	insertEventStmt                  *sql.Stmt
+	selectEventsStmt                 *sql.Stmt
+	selectMaxEventIDStmt             *sql.Stmt
+	selectRecentEventsStmt           *sql.Stmt
+	selectRecentEventsForSyncStmt    *sql.Stmt
+	selectEarlyEventsStmt            *sql.Stmt
+	selectStateInRangeStmt           *sql.Stmt
+	updateEventJSONStmt              *sql.Stmt
+	deleteEventsForRoomStmt          *sql.Stmt
+	bulkSelectMaxStreamPositionsStmt *sql.Stmt
 }
 
 func NewPostgresEventsTable(db *sql.DB) (tables.Events, error) {
@@ -173,6 +182,9 @@ func NewPostgresEventsTable(db *sql.DB) (tables.Events, error) {
 		return nil, err
 	}
 	if s.deleteEventsForRoomStmt, err = db.Prepare(deleteEventsForRoomSQL); err != nil {
+		return nil, err
+	}
+	if s.bulkSelectMaxStreamPositionsStmt, err = db.Prepare(bulkSelectMaxStreamPositionsSQL); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -433,6 +445,28 @@ func (s *outputRoomEventsStatements) DeleteEventsForRoom(
 ) (err error) {
 	_, err = sqlutil.TxStmt(txn, s.deleteEventsForRoomStmt).ExecContext(ctx, roomID)
 	return err
+}
+
+func (s *outputRoomEventsStatements) BulkSelectMaxStreamPositions(
+	ctx context.Context, txn *sql.Tx, roomIDs []string, offset, count int,
+) (map[string]types.StreamPosition, error) {
+	result := map[string]types.StreamPosition{}
+	stmt := sqlutil.TxStmt(txn, s.bulkSelectMaxStreamPositionsStmt)
+	rows, err := stmt.QueryContext(ctx, roomIDs, offset, count)
+	if err != nil {
+		return nil, fmt.Errorf("stmt.QueryContext: %w", err)
+	}
+	defer internal.CloseAndLogIfError(ctx, rows, "failed to close rows")
+	for rows.Next() {
+		var roomID string
+		var pos types.StreamPosition
+		err = rows.Scan(&roomID, &pos)
+		if err != nil {
+			return nil, fmt.Errorf("rows.Scan: %w", err)
+		}
+		result[roomID] = pos
+	}
+	return result, nil
 }
 
 func rowsToStreamEvents(rows *sql.Rows) ([]types.StreamEvent, error) {

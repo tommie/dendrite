@@ -63,6 +63,7 @@ type Events interface {
 	UpdateEventJSON(ctx context.Context, event *gomatrixserverlib.HeaderedEvent) error
 	// DeleteEventsForRoom removes all event information for a room. This should only be done when removing the room entirely.
 	DeleteEventsForRoom(ctx context.Context, txn *sql.Tx, roomID string) (err error)
+	BulkSelectMaxStreamPositions(ctx context.Context, txn *sql.Tx, roomIDs []string, offset, count int) (map[string]types.StreamPosition, error)
 }
 
 // Topology keeps track of the depths and stream positions for all events.
@@ -166,4 +167,5 @@ type Receipts interface {
 type Memberships interface {
 	UpsertMembership(ctx context.Context, txn *sql.Tx, event *gomatrixserverlib.HeaderedEvent, streamPos, topologicalPos types.StreamPosition) error
 	SelectMembership(ctx context.Context, txn *sql.Tx, roomID, userID, memberships []string) (eventID string, streamPos, topologyPos types.StreamPosition, err error)
+	SelectMemberships(ctx context.Context, txn *sql.Tx, userID string) (map[string]string, error)
 }
