@@ -31,7 +31,7 @@ type pusherJSON struct {
 	AppID             string         `json:"app_id"`
 	AppDisplayName    string         `json:"app_display_name"`
 	DeviceDisplayName string         `json:"device_display_name"`
-	ProfileTag        string         `json:"profile_tag"`
+	ProfileTag        *string        `json:"profile_tag"`
 	Language          string         `json:"lang"`
 	Data              pusherDataJSON `json:"data"`
 }
@@ -67,7 +67,7 @@ func GetPushersByLocalpart(
 			AppID:             pusher.AppID,
 			AppDisplayName:    pusher.AppDisplayName,
 			DeviceDisplayName: pusher.DeviceDisplayName,
-			ProfileTag:        pusher.ProfileTag,
+			ProfileTag:        &pusher.ProfileTag,
 			Language:          pusher.Language,
 			Data:              pusherDataJSON(pusher.Data),
 		})

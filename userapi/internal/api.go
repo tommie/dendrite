@@ -151,6 +151,16 @@ func (a *UserInternalAPI) PerformDeviceDeletion(ctx context.Context, req *api.Pe
 	return a.deviceListUpdate(req.UserID, deletedDeviceIDs)
 }
 
+func (a *UserInternalAPI) PerformPusherCreation(ctx context.Context, req *api.PerformPusherCreationRequest, res *api.PerformPusherCreationResponse) error {
+	util.GetLogger(ctx).WithFields(logrus.Fields{
+		"localpart":    req.Localpart,
+		"pushkey":      req.PushKey,
+		"display_name": req.AppDisplayName,
+	}).Info("PerformPusherCreation")
+	err := a.PusherDB.CreatePusher(ctx, req.PushKey, req.Kind, req.AppID, req.AppDisplayName, req.DeviceDisplayName, req.ProfileTag, req.Language, req.URL, req.Format, req.Localpart)
+	return err
+}
+
 func (a *UserInternalAPI) PerformPusherDeletion(ctx context.Context, req *api.PerformPusherDeletionRequest, res *api.PerformPusherDeletionResponse) error {
 	util.GetLogger(ctx).WithField("user_id", req.UserID).WithField("pushkey", req.PushKey).Info("PerformPusherDeletion")
 	local, domain, err := gomatrixserverlib.SplitID('@', req.UserID)

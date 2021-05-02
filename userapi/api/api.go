@@ -29,6 +29,7 @@ type UserInternalAPI interface {
 	PerformPasswordUpdate(ctx context.Context, req *PerformPasswordUpdateRequest, res *PerformPasswordUpdateResponse) error
 	PerformDeviceCreation(ctx context.Context, req *PerformDeviceCreationRequest, res *PerformDeviceCreationResponse) error
 	PerformDeviceDeletion(ctx context.Context, req *PerformDeviceDeletionRequest, res *PerformDeviceDeletionResponse) error
+	PerformPusherCreation(ctx context.Context, req *PerformPusherCreationRequest, res *PerformPusherCreationResponse) error
 	PerformPusherDeletion(ctx context.Context, req *PerformPusherDeletionRequest, res *PerformPusherDeletionResponse) error
 	PerformLastSeenUpdate(ctx context.Context, req *PerformLastSeenUpdateRequest, res *PerformLastSeenUpdateResponse) error
 	PerformDeviceUpdate(ctx context.Context, req *PerformDeviceUpdateRequest, res *PerformDeviceUpdateResponse) error
@@ -237,6 +238,24 @@ type PerformDeviceCreationRequest struct {
 type PerformDeviceCreationResponse struct {
 	DeviceCreated bool
 	Device        *Device
+}
+
+// PerformPusherCreationRequest is the request for PerformPusherCreation
+type PerformPusherCreationRequest struct {
+	Localpart         string
+	PushKey           string
+	Kind              string
+	AppID             string
+	AppDisplayName    string
+	DeviceDisplayName string
+	ProfileTag        string
+	Language          string
+	URL               string
+	Format            string
+}
+
+// PerformPusherCreationResponse is the response for PerformPusherCreation
+type PerformPusherCreationResponse struct {
 }
 
 // PerformAccountDeactivationRequest is the request for PerformAccountDeactivation

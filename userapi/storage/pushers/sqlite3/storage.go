@@ -57,6 +57,12 @@ func NewDatabase(dbProperties *config.DatabaseOptions, serverName gomatrixserver
 	return &Database{db, writer, d}, nil
 }
 
+func (d *Database) CreatePusher(
+	ctx context.Context, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
+) error {
+	return d.pushers.insertPusher(ctx, nil, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart)
+}
+
 // GetPushersByLocalpart returns the pushers matching the given localpart.
 func (d *Database) GetPushersByLocalpart(
 	ctx context.Context, localpart string,

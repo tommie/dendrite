@@ -42,6 +42,10 @@ CREATE TABLE IF NOT EXISTS pusher_pushers (
 	UNIQUE (localpart, pushkey)
 );
 `
+const insertPusherSQL = "" +
+	"INSERT INTO pusher_pushers (localpart, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format)" +
+	" VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9. $10)"
+
 const selectPushersByLocalpartSQL = "" +
 	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1"
 
@@ -54,6 +58,7 @@ const deletePusherSQL = "" +
 type pushersStatements struct {
 	db                           *sql.DB
 	writer                       sqlutil.Writer
+	insertPusherStmt             *sql.Stmt
 	selectPushersByLocalpartStmt *sql.Stmt
 	selectPusherByPushkeyStmt    *sql.Stmt
 	deletePusherStmt             *sql.Stmt
@@ -68,6 +73,9 @@ func (s *pushersStatements) execSchema(db *sql.DB) error {
 func (s *pushersStatements) prepare(db *sql.DB, writer sqlutil.Writer, server gomatrixserverlib.ServerName) (err error) {
 	s.db = db
 	s.writer = writer
+	if s.insertPusherStmt, err = db.Prepare(insertPusherSQL); err != nil {
+		return
+	}
 	if s.selectPushersByLocalpartStmt, err = db.Prepare(selectPushersByLocalpartSQL); err != nil {
 		return
 	}
@@ -79,6 +87,17 @@ func (s *pushersStatements) prepare(db *sql.DB, writer sqlutil.Writer, server go
 	}
 	s.serverName = server
 	return
+}
+
+// insertPusher creates a new pusher.
+// Returns an error if the user already has a pusher with the given pusher pushkey.
+// Returns nil error success.
+func (s *pushersStatements) insertPusher(
+	ctx context.Context, txn *sql.Tx, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.insertPusherStmt)
+	_, err := stmt.ExecContext(ctx, localpart, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format)
+	return err
 }
 
 func (s *pushersStatements) selectPushersByLocalpart(

@@ -58,15 +58,21 @@ CREATE TABLE IF NOT EXISTS pusher_pushers (
 CREATE UNIQUE INDEX IF NOT EXISTS pusher_localpart_pushkey_idx ON pusher_pushers(localpart, pushkey);
 `
 
+const insertPusherSQL = "" +
+	"INSERT INTO pusher_pushers(localpart, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+
 const selectPushersByLocalpartSQL = "" +
 	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1"
 
 const selectPusherByPushkeySQL = "" +
 	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1 AND pushkey = $2"
 
+
 const deletePusherSQL = "" +
 	"DELETE FROM pusher_pushers WHERE pushkey = $1 AND localpart = $2"
+
 type pushersStatements struct {
+	insertPusherStmt             *sql.Stmt
 	selectPushersByLocalpartStmt *sql.Stmt
 	selectPusherByPushkeyStmt    *sql.Stmt
 	deletePusherStmt             *sql.Stmt
@@ -79,6 +85,9 @@ func (s *pushersStatements) execSchema(db *sql.DB) error {
 }
 
 func (s *pushersStatements) prepare(db *sql.DB, server gomatrixserverlib.ServerName) (err error) {
+	if s.insertPusherStmt, err = db.Prepare(insertPusherSQL); err != nil {
+		return
+	}
 	if s.selectPushersByLocalpartStmt, err = db.Prepare(selectPushersByLocalpartSQL); err != nil {
 		return
 	}
@@ -90,6 +99,17 @@ func (s *pushersStatements) prepare(db *sql.DB, server gomatrixserverlib.ServerN
 	}
 	s.serverName = server
 	return
+}
+
+// insertPusher creates a new pusher.
+// Returns an error if the user already has a pusher with the given pusher pushkey.
+// Returns nil error success.
+func (s *pushersStatements) insertPusher(
+	ctx context.Context, txn *sql.Tx, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.insertPusherStmt)
+	_, err := stmt.ExecContext(ctx, localpart, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format)
+	return err
 }
 
 // deletePusher removes a single pusher by pushkey and user localpart.

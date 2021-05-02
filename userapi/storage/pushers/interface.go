@@ -21,6 +21,7 @@ import (
 )
 
 type Database interface {
+	CreatePusher(ctd context.Context, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string) error
 	GetPushersByLocalpart(ctx context.Context, localpart string) ([]api.Pusher, error)
 	GetPusherByPushkey(ctx context.Context, pushkey, localpart string) (*api.Pusher, error)
 	RemovePusher(ctx context.Context, pushkey, localpart string) error
