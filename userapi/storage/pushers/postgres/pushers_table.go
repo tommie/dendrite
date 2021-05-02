@@ -64,9 +64,12 @@ const selectPushersByLocalpartSQL = "" +
 const selectPusherByPushkeySQL = "" +
 	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1 AND pushkey = $2"
 
+const deletePusherSQL = "" +
+	"DELETE FROM pusher_pushers WHERE pushkey = $1 AND localpart = $2"
 type pushersStatements struct {
 	selectPushersByLocalpartStmt *sql.Stmt
 	selectPusherByPushkeyStmt    *sql.Stmt
+	deletePusherStmt             *sql.Stmt
 	serverName                   gomatrixserverlib.ServerName
 }
 
@@ -82,8 +85,20 @@ func (s *pushersStatements) prepare(db *sql.DB, server gomatrixserverlib.ServerN
 	if s.selectPusherByPushkeyStmt, err = db.Prepare(selectPusherByPushkeySQL); err != nil {
 		return
 	}
+	if s.deletePusherStmt, err = db.Prepare(deletePusherSQL); err != nil {
+		return
+	}
 	s.serverName = server
 	return
+}
+
+// deletePusher removes a single pusher by pushkey and user localpart.
+func (s *pushersStatements) deletePusher(
+	ctx context.Context, txn *sql.Tx, pushkey, localpart string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.deletePusherStmt)
+	_, err := stmt.ExecContext(ctx, pushkey, localpart)
+	return err
 }
 
 func (s *pushersStatements) selectPushersByLocalpart(

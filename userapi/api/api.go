@@ -29,6 +29,7 @@ type UserInternalAPI interface {
 	PerformPasswordUpdate(ctx context.Context, req *PerformPasswordUpdateRequest, res *PerformPasswordUpdateResponse) error
 	PerformDeviceCreation(ctx context.Context, req *PerformDeviceCreationRequest, res *PerformDeviceCreationResponse) error
 	PerformDeviceDeletion(ctx context.Context, req *PerformDeviceDeletionRequest, res *PerformDeviceDeletionResponse) error
+	PerformPusherDeletion(ctx context.Context, req *PerformPusherDeletionRequest, res *PerformPusherDeletionResponse) error
 	PerformLastSeenUpdate(ctx context.Context, req *PerformLastSeenUpdateRequest, res *PerformLastSeenUpdateResponse) error
 	PerformDeviceUpdate(ctx context.Context, req *PerformDeviceUpdateRequest, res *PerformDeviceUpdateResponse) error
 	PerformAccountDeactivation(ctx context.Context, req *PerformAccountDeactivationRequest, res *PerformAccountDeactivationResponse) error
@@ -156,6 +157,14 @@ type PerformDeviceDeletionRequest struct {
 }
 
 type PerformDeviceDeletionResponse struct {
+}
+
+type PerformPusherDeletionRequest struct {
+	PushKey string
+	UserID  string
+}
+
+type PerformPusherDeletionResponse struct {
 }
 
 // QueryDeviceInfosRequest is the request to QueryDeviceInfos

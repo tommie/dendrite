@@ -55,16 +55,30 @@ func NewDatabase(dbProperties *config.DatabaseOptions, serverName gomatrixserver
 	return &Database{db, d}, nil
 }
 
-// GetPushersByLocalpart returns the pusers matching the given localpart.
 func (d *Database) GetPushersByLocalpart(
 	ctx context.Context, localpart string,
 ) ([]api.Pusher, error) {
 	return d.pushers.selectPushersByLocalpart(ctx, nil, localpart)
 }
 
-// GetPushersByPushkey returns the pusers matching the given localpart.
-func (d *Database) GetPushersByPushkey(
-	ctx context.Context, localpart, pushkey string,
+// GetPusherByPushkey returns the pusher matching the given localpart.
+func (d *Database) GetPusherByPushkey(
+	ctx context.Context, pushkey, localpart string,
 ) (*api.Pusher, error) {
-	return d.pushers.selectPushersByPushkey(ctx, localpart, pushkey)
+	return d.pushers.selectPusherByPushkey(ctx, localpart, pushkey)
+}
+
+// RemovePusher revokes a pusher by deleting the entry in the database
+// matching with the given pushkey and user ID localpart.
+// If the pusher doesn't exist, it will not return an error
+// If something went wrong during the deletion, it will return the SQL error.
+func (d *Database) RemovePusher(
+	ctx context.Context, pushkey, localpart string,
+) error {
+	return sqlutil.WithTransaction(d.db, func(txn *sql.Tx) error {
+		if err := d.pushers.deletePusher(ctx, txn, pushkey, localpart); err != sql.ErrNoRows {
+			return err
+		}
+		return nil
+	})
 }

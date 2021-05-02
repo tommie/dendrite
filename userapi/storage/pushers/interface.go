@@ -22,4 +22,6 @@ import (
 
 type Database interface {
 	GetPushersByLocalpart(ctx context.Context, localpart string) ([]api.Pusher, error)
+	GetPusherByPushkey(ctx context.Context, pushkey, localpart string) (*api.Pusher, error)
+	RemovePusher(ctx context.Context, pushkey, localpart string) error
 }
