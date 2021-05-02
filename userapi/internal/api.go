@@ -151,6 +151,23 @@ func (a *UserInternalAPI) PerformDeviceDeletion(ctx context.Context, req *api.Pe
 	return a.deviceListUpdate(req.UserID, deletedDeviceIDs)
 }
 
+func (a *UserInternalAPI) PerformPusherDeletion(ctx context.Context, req *api.PerformPusherDeletionRequest, res *api.PerformPusherDeletionResponse) error {
+	util.GetLogger(ctx).WithField("user_id", req.UserID).WithField("pushkey", req.PushKey).Info("PerformPusherDeletion")
+	local, domain, err := gomatrixserverlib.SplitID('@', req.UserID)
+	if err != nil {
+		return err
+	}
+	if domain != a.ServerName {
+		return fmt.Errorf("cannot PerformPusherDeletion of remote users: got %s want %s", domain, a.ServerName)
+	}
+	err = a.PusherDB.RemovePusher(ctx, local, req.PushKey)
+	if err != nil {
+		return err
+	}
+	// create empty device keys and upload them to delete what was once there and trigger device list changes
+	return nil
+}
+
 func (a *UserInternalAPI) deviceListUpdate(userID string, deviceIDs []string) error {
 	deviceKeys := make([]keyapi.DeviceKeys, len(deviceIDs))
 	for i, did := range deviceIDs {

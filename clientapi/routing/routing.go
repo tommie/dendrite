@@ -814,7 +814,7 @@ func Setup(
 			if r := rateLimits.rateLimit(req); r != nil {
 				return *r
 			}
-			return SetPushersByLocalpart(req, userAPI, device)
+			return SetPusherByLocalpart(req, userAPI, device)
 		}),
 	).Methods(http.MethodPost, http.MethodOptions)
 
