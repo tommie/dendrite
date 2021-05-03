@@ -59,7 +59,9 @@ func GetPushersByLocalpart(
 		return jsonerror.InternalServerError()
 	}
 
-	res := pushersJSON{}
+	res := pushersJSON{
+		Pushers: []pusherJSON{},
+	}
 
 	for _, pusher := range queryRes.Pushers {
 		res.Pushers = append(res.Pushers, pusherJSON{
