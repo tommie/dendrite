@@ -22,6 +22,7 @@ import (
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/gomatrixserverlib"
+	"github.com/sirupsen/logrus"
 )
 
 // Database represents a pusher database.
@@ -56,9 +57,10 @@ func NewDatabase(dbProperties *config.DatabaseOptions, serverName gomatrixserver
 }
 
 func (d *Database) CreatePusher(
-	ctx context.Context, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
+	ctx context.Context, session_id int64,
+	pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
 ) error {
-	return d.pushers.insertPusher(ctx, nil, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart)
+	return d.pushers.insertPusher(ctx, nil, session_id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart)
 }
 
 // GetPushersByLocalpart returns the pushers matching the given localpart.
@@ -75,16 +77,28 @@ func (d *Database) GetPusherByPushkey(
 	return d.pushers.selectPusherByPushkey(ctx, localpart, pushkey)
 }
 
+// UpdatePusher updates the given pusher with the display name.
+// Returns SQL error if there are problems and nil on success.
+func (d *Database) UpdatePusher(
+	ctx context.Context, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
+) error {
+	return sqlutil.WithTransaction(d.db, func(txn *sql.Tx) error {
+		return d.pushers.updatePusher(ctx, txn, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart)
+	})
+}
+
 // RemovePusher revokes a pusher by deleting the entry in the database
 // matching with the given pushkey and user ID localpart.
 // If the pusher doesn't exist, it will not return an error
 // If something went wrong during the deletion, it will return the SQL error.
 func (d *Database) RemovePusher(
-	ctx context.Context, pushkey, localpart string,
+	ctx context.Context, appid, pushkey, localpart string,
 ) error {
 	return sqlutil.WithTransaction(d.db, func(txn *sql.Tx) error {
-		if err := d.pushers.deletePusher(ctx, txn, pushkey, localpart); err != sql.ErrNoRows {
+		if err := d.pushers.deletePusher(ctx, txn, appid, pushkey, localpart); err != sql.ErrNoRows {
 			return err
+		} else {
+			logrus.WithError(err).Debug("RemovePusher Error")
 		}
 		return nil
 	})

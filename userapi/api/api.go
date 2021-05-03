@@ -29,10 +29,11 @@ type UserInternalAPI interface {
 	PerformPasswordUpdate(ctx context.Context, req *PerformPasswordUpdateRequest, res *PerformPasswordUpdateResponse) error
 	PerformDeviceCreation(ctx context.Context, req *PerformDeviceCreationRequest, res *PerformDeviceCreationResponse) error
 	PerformDeviceDeletion(ctx context.Context, req *PerformDeviceDeletionRequest, res *PerformDeviceDeletionResponse) error
-	PerformPusherCreation(ctx context.Context, req *PerformPusherCreationRequest, res *PerformPusherCreationResponse) error
-	PerformPusherDeletion(ctx context.Context, req *PerformPusherDeletionRequest, res *PerformPusherDeletionResponse) error
 	PerformLastSeenUpdate(ctx context.Context, req *PerformLastSeenUpdateRequest, res *PerformLastSeenUpdateResponse) error
 	PerformDeviceUpdate(ctx context.Context, req *PerformDeviceUpdateRequest, res *PerformDeviceUpdateResponse) error
+	PerformPusherCreation(ctx context.Context, req *PerformPusherCreationRequest, res *PerformPusherCreationResponse) error
+	PerformPusherDeletion(ctx context.Context, req *PerformPusherDeletionRequest, res *PerformPusherDeletionResponse) error
+	PerformPusherUpdate(ctx context.Context, req *PerformPusherUpdateRequest, res *PerformPusherUpdateResponse) error
 	PerformAccountDeactivation(ctx context.Context, req *PerformAccountDeactivationRequest, res *PerformAccountDeactivationResponse) error
 	PerformOpenIDTokenCreation(ctx context.Context, req *PerformOpenIDTokenCreationRequest, res *PerformOpenIDTokenCreationResponse) error
 	PerformKeyBackup(ctx context.Context, req *PerformKeyBackupRequest, res *PerformKeyBackupResponse)
@@ -161,6 +162,7 @@ type PerformDeviceDeletionResponse struct {
 }
 
 type PerformPusherDeletionRequest struct {
+	AppID   string
 	PushKey string
 	UserID  string
 }
@@ -322,7 +324,7 @@ type PerformDeviceCreationResponse struct {
 
 // PerformPusherCreationRequest is the request for PerformPusherCreation
 type PerformPusherCreationRequest struct {
-	Localpart         string
+	Device            *Device
 	PushKey           string
 	Kind              string
 	AppID             string
@@ -336,6 +338,24 @@ type PerformPusherCreationRequest struct {
 
 // PerformPusherCreationResponse is the response for PerformPusherCreation
 type PerformPusherCreationResponse struct {
+}
+
+// PerformPusherUpdateRequest is the request for PerformPusherUpdate
+type PerformPusherUpdateRequest struct {
+	Device            *Device
+	PushKey           string
+	Kind              string
+	AppID             string
+	AppDisplayName    string
+	DeviceDisplayName string
+	ProfileTag        string
+	Language          string
+	URL               string
+	Format            string
+}
+
+// PerformPusherUpdateResponse is the response for PerformPusherUpdate
+type PerformPusherUpdateResponse struct {
 }
 
 // PerformAccountDeactivationRequest is the request for PerformAccountDeactivation
@@ -392,6 +412,7 @@ type Device struct {
 // Pusher represents a push notification subscriber
 type Pusher struct {
 	UserID            string
+	SessionID         int64
 	PushKey           string
 	Kind              string
 	AppID             string
