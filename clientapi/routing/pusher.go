@@ -22,6 +22,7 @@ import (
 	"github.com/matrix-org/dendrite/userapi/api"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 )
 
 // https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-pushers
@@ -31,7 +32,7 @@ type pusherJSON struct {
 	AppID             string         `json:"app_id"`
 	AppDisplayName    string         `json:"app_display_name"`
 	DeviceDisplayName string         `json:"device_display_name"`
-	ProfileTag        *string        `json:"profile_tag"`
+	ProfileTag        string         `json:"profile_tag"`
 	Language          string         `json:"lang"`
 	Data              pusherDataJSON `json:"data"`
 }
@@ -67,12 +68,14 @@ func GetPushersByLocalpart(
 			AppID:             pusher.AppID,
 			AppDisplayName:    pusher.AppDisplayName,
 			DeviceDisplayName: pusher.DeviceDisplayName,
-			ProfileTag:        &pusher.ProfileTag,
+			ProfileTag:        pusher.ProfileTag,
 			Language:          pusher.Language,
 			Data:              pusherDataJSON(pusher.Data),
 		})
 	}
 
+	logrus.Debugf("😁 HTTP returning %d pushers", len(res.Pushers))
+	logrus.Debugf("🔮 Pushers %v", res.Pushers)
 	return util.JSONResponse{
 		Code: http.StatusOK,
 		JSON: res,
@@ -85,21 +88,92 @@ func GetPushersByLocalpart(
 func SetPusherByLocalpart(
 	req *http.Request, userAPI userapi.UserInternalAPI, device *api.Device,
 ) util.JSONResponse {
-
+	var deletionRes userapi.PerformPusherDeletionResponse
 	body := pusherJSON{}
 
 	if resErr := httputil.UnmarshalJSONRequest(req, &body); resErr != nil {
 		return *resErr
 	}
 
-	// TODO:
-	// 1. if kind == null, GetPusherByPushkey and delete it! 🗑
-	// 2. if GetPusherByPushkey returns existing Pusher, update it with the received body
-	// 3. if GetPusherByPushkey returns nothing, create a new Pusher with the received body
+	var queryRes userapi.QueryPushersResponse
+	err := userAPI.QueryPushers(req.Context(), &userapi.QueryPushersRequest{
+		UserID: device.UserID,
+	}, &queryRes)
+	if err != nil {
+		util.GetLogger(req.Context()).WithError(err).Error("QueryPushers failed")
+		return jsonerror.InternalServerError()
+	}
 
-	res := body
+	var targetPusher *userapi.Pusher
+	for _, pusher := range queryRes.Pushers {
+		if pusher.PushKey == body.PushKey {
+			targetPusher = &pusher
+			break
+		}
+	}
+
+	// No Pusher exists with the given PushKey for current user
+	if targetPusher == nil {
+		// Create a new Pusher for current user
+		var pusherResponse userapi.PerformPusherCreationResponse
+		err = userAPI.PerformPusherCreation(req.Context(), &userapi.PerformPusherCreationRequest{
+			Device:            device,
+			PushKey:           body.PushKey,
+			Kind:              body.Kind,
+			AppID:             body.AppID,
+			AppDisplayName:    body.AppDisplayName,
+			DeviceDisplayName: body.DeviceDisplayName,
+			ProfileTag:        body.ProfileTag,
+			Language:          body.Language,
+			URL:               body.Data.URL,
+			Format:            body.Data.Format,
+		}, &pusherResponse)
+
+		if err != nil {
+			util.GetLogger(req.Context()).WithError(err).Error("PerformPusherCreation failed")
+			return jsonerror.InternalServerError()
+		}
+	} else if body.Kind == "" {
+		if targetPusher == nil {
+			return util.JSONResponse{
+				Code: http.StatusNotFound,
+				JSON: jsonerror.NotFound("Unknown pusher"),
+			}
+		}
+
+		// if kind is null, delete the pusher! 🗑
+		err = userAPI.PerformPusherDeletion(req.Context(), &userapi.PerformPusherDeletionRequest{
+			AppID:   targetPusher.AppID,
+			PushKey: targetPusher.PushKey,
+			UserID:  targetPusher.UserID,
+		}, &deletionRes)
+
+		if err != nil {
+			util.GetLogger(req.Context()).WithError(err).Error("PerformPusherDeletion failed")
+			return jsonerror.InternalServerError()
+		}
+	} else {
+		var pusherResponse userapi.PerformPusherUpdateResponse
+		err = userAPI.PerformPusherUpdate(req.Context(), &userapi.PerformPusherUpdateRequest{
+			PushKey:           body.PushKey,
+			Kind:              body.Kind,
+			AppID:             body.AppID,
+			AppDisplayName:    body.AppDisplayName,
+			DeviceDisplayName: body.DeviceDisplayName,
+			ProfileTag:        body.ProfileTag,
+			Language:          body.Language,
+			URL:               body.Data.URL,
+			Format:            body.Data.Format,
+		}, &pusherResponse)
+
+		if err != nil {
+			util.GetLogger(req.Context()).WithError(err).Error("PerformPusherUpdate failed")
+			return jsonerror.InternalServerError()
+		}
+	}
+
 	return util.JSONResponse{
 		Code: http.StatusOK,
-		JSON: res,
+		JSON: struct{}{},
 	}
 }

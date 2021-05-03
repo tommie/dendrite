@@ -20,6 +20,7 @@ import (
 
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/userapi/api"
+	"github.com/sirupsen/logrus"
 
 	"github.com/matrix-org/dendrite/clientapi/userutil"
 	"github.com/matrix-org/gomatrixserverlib"
@@ -28,32 +29,36 @@ import (
 const pushersSchema = `
 -- Stores data about pushers.
 CREATE TABLE IF NOT EXISTS pusher_pushers (
-	localpart TEXT PRIMARY KEY,
-	pushkey VARCHAR(512),
+	localpart TEXT,
+	session_id BIGINT,
+	profile_tag TEXT,
 	kind TEXT,
 	app_id VARCHAR(64),
 	app_display_name TEXT,
 	device_display_name TEXT,
-	profile_tag TEXT,
+	pushkey VARCHAR(512),
 	lang TEXT,
 	url TEXT,
 	format TEXT,
 
-	UNIQUE (localpart, pushkey)
+	UNIQUE (app_id, pushkey, localpart)
 );
 `
 const insertPusherSQL = "" +
-	"INSERT INTO pusher_pushers (localpart, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format)" +
-	" VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9. $10)"
+	"INSERT INTO pusher_pushers (localpart, session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format)" +
+	" VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
 
 const selectPushersByLocalpartSQL = "" +
-	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1"
+	"SELECT session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1"
 
 const selectPusherByPushkeySQL = "" +
-	"SELECT pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1 AND pushkey = $2"
+	"SELECT session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1 AND pushkey = $2"
+
+const updatePusherSQL = "" +
+	"UPDATE pusher_pushers SET kind = $1, app_id = $2, app_display_name = $3, device_display_name = $4, profile_tag = $5, lang = $6, url = $7, format = $8 WHERE localpart = $9 AND pushkey = $10"
 
 const deletePusherSQL = "" +
-	"DELETE FROM pusher_pushers WHERE pushkey = $1 AND localpart = $2"
+	"DELETE FROM pusher_pushers WHERE app_id = $1 AND pushkey = $2 AND localpart = $3"
 
 type pushersStatements struct {
 	db                           *sql.DB
@@ -61,6 +66,7 @@ type pushersStatements struct {
 	insertPusherStmt             *sql.Stmt
 	selectPushersByLocalpartStmt *sql.Stmt
 	selectPusherByPushkeyStmt    *sql.Stmt
+	updatePusherStmt             *sql.Stmt
 	deletePusherStmt             *sql.Stmt
 	serverName                   gomatrixserverlib.ServerName
 }
@@ -82,6 +88,9 @@ func (s *pushersStatements) prepare(db *sql.DB, writer sqlutil.Writer, server go
 	if s.selectPusherByPushkeyStmt, err = db.Prepare(selectPusherByPushkeySQL); err != nil {
 		return
 	}
+	if s.updatePusherStmt, err = db.Prepare(updatePusherSQL); err != nil {
+		return
+	}
 	if s.deletePusherStmt, err = db.Prepare(deletePusherSQL); err != nil {
 		return
 	}
@@ -93,10 +102,12 @@ func (s *pushersStatements) prepare(db *sql.DB, writer sqlutil.Writer, server go
 // Returns an error if the user already has a pusher with the given pusher pushkey.
 // Returns nil error success.
 func (s *pushersStatements) insertPusher(
-	ctx context.Context, txn *sql.Tx, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
+	ctx context.Context, txn *sql.Tx, session_id int64,
+	pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
 ) error {
 	stmt := sqlutil.TxStmt(txn, s.insertPusherStmt)
-	_, err := stmt.ExecContext(ctx, localpart, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format)
+	_, err := stmt.ExecContext(ctx, localpart, session_id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format)
+	logrus.Debugf("🥳 Created pusher %d", session_id)
 	return err
 }
 
@@ -111,11 +122,16 @@ func (s *pushersStatements) selectPushersByLocalpart(
 	}
 
 	for rows.Next() {
+		logrus.Debug("Next pusher row...")
 		var pusher api.Pusher
+		var sessionid sql.NullInt64
 		var pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format sql.NullString
-		err = rows.Scan(&pushkey, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &lang, &url, &format)
+		err = rows.Scan(&sessionid, &pushkey, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &lang, &url, &format)
 		if err != nil {
 			return pushers, err
+		}
+		if sessionid.Valid {
+			pusher.SessionID = sessionid.Int64
 		}
 		if pushkey.Valid {
 			pusher.PushKey = pushkey.String
@@ -149,6 +165,7 @@ func (s *pushersStatements) selectPushersByLocalpart(
 		pushers = append(pushers, pusher)
 	}
 
+	logrus.Debugf("🤓 Database returned %d pushers", len(pushers))
 	return pushers, nil
 }
 
@@ -194,10 +211,18 @@ func (s *pushersStatements) selectPusherByPushkey(
 	return &pusher, err
 }
 
+func (s *pushersStatements) updatePusher(
+	ctx context.Context, txn *sql.Tx, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
+) error {
+	stmt := sqlutil.TxStmt(txn, s.updatePusherStmt)
+	_, err := stmt.ExecContext(ctx, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart, pushkey)
+	return err
+}
+
 func (s *pushersStatements) deletePusher(
-	ctx context.Context, txn *sql.Tx, id, localpart string,
+	ctx context.Context, txn *sql.Tx, appid, pushkey, localpart string,
 ) error {
 	stmt := sqlutil.TxStmt(txn, s.deletePusherStmt)
-	_, err := stmt.ExecContext(ctx, id, localpart)
+	_, err := stmt.ExecContext(ctx, appid, pushkey, localpart)
 	return err
 }

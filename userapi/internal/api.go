@@ -153,16 +153,34 @@ func (a *UserInternalAPI) PerformDeviceDeletion(ctx context.Context, req *api.Pe
 
 func (a *UserInternalAPI) PerformPusherCreation(ctx context.Context, req *api.PerformPusherCreationRequest, res *api.PerformPusherCreationResponse) error {
 	util.GetLogger(ctx).WithFields(logrus.Fields{
-		"localpart":    req.Localpart,
+		"userId":       req.Device.UserID,
 		"pushkey":      req.PushKey,
 		"display_name": req.AppDisplayName,
 	}).Info("PerformPusherCreation")
-	err := a.PusherDB.CreatePusher(ctx, req.PushKey, req.Kind, req.AppID, req.AppDisplayName, req.DeviceDisplayName, req.ProfileTag, req.Language, req.URL, req.Format, req.Localpart)
+	local, _, err := gomatrixserverlib.SplitID('@', req.Device.UserID)
+	if err != nil {
+		return err
+	}
+	err = a.PusherDB.CreatePusher(ctx, req.Device.SessionID, req.PushKey, req.Kind, req.AppID, req.AppDisplayName, req.DeviceDisplayName, req.ProfileTag, req.Language, req.URL, req.Format, local)
+	return err
+}
+
+func (a *UserInternalAPI) PerformPusherUpdate(ctx context.Context, req *api.PerformPusherUpdateRequest, res *api.PerformPusherUpdateResponse) error {
+	util.GetLogger(ctx).WithFields(logrus.Fields{
+		"localpart":    req.Device.UserID,
+		"pushkey":      req.PushKey,
+		"display_name": req.AppDisplayName,
+	}).Info("PerformPusherUpdate")
+	local, _, err := gomatrixserverlib.SplitID('@', req.Device.UserID)
+	if err != nil {
+		return err
+	}
+	err = a.PusherDB.UpdatePusher(ctx, req.PushKey, req.Kind, req.AppID, req.AppDisplayName, req.DeviceDisplayName, req.ProfileTag, req.Language, req.URL, req.Format, local)
 	return err
 }
 
 func (a *UserInternalAPI) PerformPusherDeletion(ctx context.Context, req *api.PerformPusherDeletionRequest, res *api.PerformPusherDeletionResponse) error {
-	util.GetLogger(ctx).WithField("user_id", req.UserID).WithField("pushkey", req.PushKey).Info("PerformPusherDeletion")
+	util.GetLogger(ctx).WithField("user_id", req.UserID).WithField("pushkey", req.PushKey).WithField("app_id", req.AppID).Info("PerformPusherDeletion")
 	local, domain, err := gomatrixserverlib.SplitID('@', req.UserID)
 	if err != nil {
 		return err
@@ -170,11 +188,10 @@ func (a *UserInternalAPI) PerformPusherDeletion(ctx context.Context, req *api.Pe
 	if domain != a.ServerName {
 		return fmt.Errorf("cannot PerformPusherDeletion of remote users: got %s want %s", domain, a.ServerName)
 	}
-	err = a.PusherDB.RemovePusher(ctx, local, req.PushKey)
+	err = a.PusherDB.RemovePusher(ctx, req.AppID, req.PushKey, local)
 	if err != nil {
 		return err
 	}
-	// create empty device keys and upload them to delete what was once there and trigger device list changes
 	return nil
 }
 
