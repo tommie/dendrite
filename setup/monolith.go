@@ -25,6 +25,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/transactions"
 	keyAPI "github.com/matrix-org/dendrite/keyserver/api"
 	"github.com/matrix-org/dendrite/mediaapi"
+	pushserverAPI "github.com/matrix-org/dendrite/pushserver/api"
 	roomserverAPI "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/setup/process"
@@ -51,6 +52,7 @@ type Monolith struct {
 	ServerKeyAPI        serverKeyAPI.SigningKeyServerAPI
 	UserAPI             userapi.UserInternalAPI
 	KeyAPI              keyAPI.KeyInternalAPI
+	PushserverAPI       pushserverAPI.PushserverInternalAPI
 
 	// Optional
 	ExtPublicRoomsProvider api.ExtraPublicRoomsProvider
