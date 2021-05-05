@@ -38,24 +38,23 @@ CREATE TABLE IF NOT EXISTS pusher_pushers (
 	device_display_name TEXT,
 	pushkey VARCHAR(512),
 	lang TEXT,
-	url TEXT,
-	format TEXT,
+	data TEXT,
 
 	UNIQUE (app_id, pushkey, localpart)
 );
 `
 const insertPusherSQL = "" +
-	"INSERT INTO pusher_pushers (localpart, session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format)" +
-	" VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
+	"INSERT INTO pusher_pushers (localpart, session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, data)" +
+	" VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
 
 const selectPushersByLocalpartSQL = "" +
-	"SELECT session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1"
+	"SELECT session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, data FROM pusher_pushers WHERE localpart = $1"
 
 const selectPusherByPushkeySQL = "" +
-	"SELECT session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, url, format FROM pusher_pushers WHERE localpart = $1 AND pushkey = $2"
+	"SELECT session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, data FROM pusher_pushers WHERE localpart = $1 AND pushkey = $2"
 
 const updatePusherSQL = "" +
-	"UPDATE pusher_pushers SET kind = $1, app_id = $2, app_display_name = $3, device_display_name = $4, profile_tag = $5, lang = $6, url = $7, format = $8 WHERE localpart = $9 AND pushkey = $10"
+	"UPDATE pusher_pushers SET kind = $1, app_id = $2, app_display_name = $3, device_display_name = $4, profile_tag = $5, lang = $6, data = $7 WHERE localpart = $8 AND pushkey = $9"
 
 const deletePusherSQL = "" +
 	"DELETE FROM pusher_pushers WHERE app_id = $1 AND pushkey = $2 AND localpart = $3"
@@ -103,10 +102,10 @@ func (s *pushersStatements) prepare(db *sql.DB, writer sqlutil.Writer, server go
 // Returns nil error success.
 func (s *pushersStatements) insertPusher(
 	ctx context.Context, txn *sql.Tx, session_id int64,
-	pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
+	pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
 ) error {
 	stmt := sqlutil.TxStmt(txn, s.insertPusherStmt)
-	_, err := stmt.ExecContext(ctx, localpart, session_id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format)
+	_, err := stmt.ExecContext(ctx, localpart, session_id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data)
 	logrus.Debugf("🥳 Created pusher %d", session_id)
 	return err
 }
@@ -125,8 +124,8 @@ func (s *pushersStatements) selectPushersByLocalpart(
 		logrus.Debug("Next pusher row...")
 		var pusher api.Pusher
 		var sessionid sql.NullInt64
-		var pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format sql.NullString
-		err = rows.Scan(&sessionid, &pushkey, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &lang, &url, &format)
+		var pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data sql.NullString
+		err = rows.Scan(&sessionid, &pushkey, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &lang, &data)
 		if err != nil {
 			return pushers, err
 		}
@@ -154,11 +153,8 @@ func (s *pushersStatements) selectPushersByLocalpart(
 		if lang.Valid {
 			pusher.Language = lang.String
 		}
-		if url.Valid && format.Valid {
-			pusher.Data = api.PusherData{
-				URL:    url.String,
-				Format: format.String,
-			}
+		if data.Valid {
+			pusher.Data = data.String
 		}
 
 		pusher.UserID = userutil.MakeUserID(localpart, s.serverName)
@@ -175,9 +171,9 @@ func (s *pushersStatements) selectPusherByPushkey(
 	ctx context.Context, localpart, pushkey string,
 ) (*api.Pusher, error) {
 	var pusher api.Pusher
-	var id, key, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format sql.NullString
+	var id, key, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data sql.NullString
 	stmt := s.selectPusherByPushkeyStmt
-	err := stmt.QueryRowContext(ctx, localpart, pushkey).Scan(&id, &key, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &lang, &url, &format)
+	err := stmt.QueryRowContext(ctx, localpart, pushkey).Scan(&id, &key, &kind, &appid, &appdisplayname, &devicedisplayname, &profiletag, &lang, &data)
 	if err == nil {
 		pusher.UserID = userutil.MakeUserID(localpart, s.serverName)
 		if key.Valid {
@@ -201,21 +197,18 @@ func (s *pushersStatements) selectPusherByPushkey(
 		if lang.Valid {
 			pusher.Language = lang.String
 		}
-		if url.Valid && format.Valid {
-			pusher.Data = api.PusherData{
-				URL:    url.String,
-				Format: format.String,
-			}
+		if data.Valid {
+			pusher.Data = data.String
 		}
 	}
 	return &pusher, err
 }
 
 func (s *pushersStatements) updatePusher(
-	ctx context.Context, txn *sql.Tx, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
+	ctx context.Context, txn *sql.Tx, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
 ) error {
 	stmt := sqlutil.TxStmt(txn, s.updatePusherStmt)
-	_, err := stmt.ExecContext(ctx, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart, pushkey)
+	_, err := stmt.ExecContext(ctx, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart, pushkey)
 	return err
 }
 

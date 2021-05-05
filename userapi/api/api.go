@@ -332,8 +332,7 @@ type PerformPusherCreationRequest struct {
 	DeviceDisplayName string
 	ProfileTag        string
 	Language          string
-	URL               string
-	Format            string
+	Data              map[string]json.RawMessage
 }
 
 // PerformPusherCreationResponse is the response for PerformPusherCreation
@@ -350,8 +349,7 @@ type PerformPusherUpdateRequest struct {
 	DeviceDisplayName string
 	ProfileTag        string
 	Language          string
-	URL               string
-	Format            string
+	Data              map[string]json.RawMessage
 }
 
 // PerformPusherUpdateResponse is the response for PerformPusherUpdate
@@ -420,12 +418,7 @@ type Pusher struct {
 	DeviceDisplayName string
 	ProfileTag        string
 	Language          string
-	Data              PusherData
-}
-
-type PusherData struct {
-	URL    string
-	Format string
+	Data              string
 }
 
 // Account represents a Matrix account on this home server.

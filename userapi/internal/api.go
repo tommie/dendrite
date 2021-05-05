@@ -173,7 +173,11 @@ func (a *UserInternalAPI) PerformPusherCreation(ctx context.Context, req *api.Pe
 	if err != nil {
 		return err
 	}
-	err = a.PusherDB.CreatePusher(ctx, req.Device.SessionID, req.PushKey, req.Kind, req.AppID, req.AppDisplayName, req.DeviceDisplayName, req.ProfileTag, req.Language, req.URL, req.Format, local)
+	jsonData, err := json.Marshal(req.Data)
+	if err != nil {
+		return err
+	}
+	err = a.PusherDB.CreatePusher(ctx, req.Device.SessionID, req.PushKey, req.Kind, req.AppID, req.AppDisplayName, req.DeviceDisplayName, req.ProfileTag, req.Language, string(jsonData), local)
 	return err
 }
 
@@ -187,7 +191,11 @@ func (a *UserInternalAPI) PerformPusherUpdate(ctx context.Context, req *api.Perf
 	if err != nil {
 		return err
 	}
-	err = a.PusherDB.UpdatePusher(ctx, req.PushKey, req.Kind, req.AppID, req.AppDisplayName, req.DeviceDisplayName, req.ProfileTag, req.Language, req.URL, req.Format, local)
+	jsonData, err := json.Marshal(req.Data)
+	if err != nil {
+		return err
+	}
+	err = a.PusherDB.UpdatePusher(ctx, req.PushKey, req.Kind, req.AppID, req.AppDisplayName, req.DeviceDisplayName, req.ProfileTag, req.Language, string(jsonData), local)
 	return err
 }
 

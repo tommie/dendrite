@@ -15,6 +15,7 @@
 package routing
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/matrix-org/dendrite/clientapi/httputil"
@@ -27,23 +28,18 @@ import (
 
 // https://matrix.org/docs/spec/client_server/r0.6.1#get-matrix-client-r0-pushers
 type pusherJSON struct {
-	PushKey           string         `json:"pushkey"`
-	Kind              string         `json:"kind"`
-	AppID             string         `json:"app_id"`
-	AppDisplayName    string         `json:"app_display_name"`
-	DeviceDisplayName string         `json:"device_display_name"`
-	ProfileTag        string         `json:"profile_tag"`
-	Language          string         `json:"lang"`
-	Data              pusherDataJSON `json:"data"`
+	PushKey           string                     `json:"pushkey"`
+	Kind              string                     `json:"kind"`
+	AppID             string                     `json:"app_id"`
+	AppDisplayName    string                     `json:"app_display_name"`
+	DeviceDisplayName string                     `json:"device_display_name"`
+	ProfileTag        string                     `json:"profile_tag"`
+	Language          string                     `json:"lang"`
+	Data              map[string]json.RawMessage `json:"data"`
 }
 
 type pushersJSON struct {
 	Pushers []pusherJSON `json:"pushers"`
-}
-
-type pusherDataJSON struct {
-	URL    string `json:"url"`
-	Format string `json:"format"`
 }
 
 // GetPushersByLocalpart handles /_matrix/client/r0/pushers
@@ -63,7 +59,10 @@ func GetPushersByLocalpart(
 		Pushers: []pusherJSON{},
 	}
 
+	//data := map[string]json.RawMessage;
+	var data map[string]json.RawMessage
 	for _, pusher := range queryRes.Pushers {
+		json.Unmarshal([]byte(pusher.Data), &data)
 		res.Pushers = append(res.Pushers, pusherJSON{
 			PushKey:           pusher.PushKey,
 			Kind:              pusher.Kind,
@@ -72,7 +71,7 @@ func GetPushersByLocalpart(
 			DeviceDisplayName: pusher.DeviceDisplayName,
 			ProfileTag:        pusher.ProfileTag,
 			Language:          pusher.Language,
-			Data:              pusherDataJSON(pusher.Data),
+			Data:              data,
 		})
 	}
 
@@ -127,8 +126,7 @@ func SetPusherByLocalpart(
 			DeviceDisplayName: body.DeviceDisplayName,
 			ProfileTag:        body.ProfileTag,
 			Language:          body.Language,
-			URL:               body.Data.URL,
-			Format:            body.Data.Format,
+			Data:              body.Data,
 		}, &pusherResponse)
 
 		if err != nil {
@@ -164,8 +162,7 @@ func SetPusherByLocalpart(
 			DeviceDisplayName: body.DeviceDisplayName,
 			ProfileTag:        body.ProfileTag,
 			Language:          body.Language,
-			URL:               body.Data.URL,
-			Format:            body.Data.Format,
+			Data:              body.Data,
 		}, &pusherResponse)
 
 		if err != nil {
