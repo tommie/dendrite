@@ -58,9 +58,9 @@ func NewDatabase(dbProperties *config.DatabaseOptions, serverName gomatrixserver
 
 func (d *Database) CreatePusher(
 	ctx context.Context, session_id int64,
-	pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
+	pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
 ) error {
-	return d.pushers.insertPusher(ctx, nil, session_id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart)
+	return d.pushers.insertPusher(ctx, nil, session_id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart)
 }
 
 // GetPushersByLocalpart returns the pushers matching the given localpart.
@@ -80,10 +80,10 @@ func (d *Database) GetPusherByPushkey(
 // UpdatePusher updates the given pusher with the display name.
 // Returns SQL error if there are problems and nil on success.
 func (d *Database) UpdatePusher(
-	ctx context.Context, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart string,
+	ctx context.Context, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
 ) error {
 	return sqlutil.WithTransaction(d.db, func(txn *sql.Tx) error {
-		return d.pushers.updatePusher(ctx, txn, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, url, format, localpart)
+		return d.pushers.updatePusher(ctx, txn, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart)
 	})
 }
 
