@@ -33,6 +33,7 @@ import (
 	"github.com/matrix-org/dendrite/federationsender"
 	"github.com/matrix-org/dendrite/internal/httputil"
 	"github.com/matrix-org/dendrite/keyserver"
+	"github.com/matrix-org/dendrite/pushserver"
 	"github.com/matrix-org/dendrite/roomserver"
 	"github.com/matrix-org/dendrite/setup"
 	"github.com/matrix-org/dendrite/setup/config"
@@ -176,6 +177,8 @@ func main() {
 		panic("failed to create new public rooms provider: " + err.Error())
 	}
 
+	psAPI := pushserver.NewInternalAPI(&base.Base)
+
 	monolith := setup.Monolith{
 		Config:    base.Base.Cfg,
 		AccountDB: accountDB,
@@ -190,6 +193,7 @@ func main() {
 		ServerKeyAPI:           serverKeyAPI,
 		UserAPI:                userAPI,
 		KeyAPI:                 keyAPI,
+		PushserverAPI:          psAPI,
 		ExtPublicRoomsProvider: provider,
 	}
 	monolith.AddAllPublicRoutes(
