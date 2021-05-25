@@ -383,8 +383,8 @@ func checkMemberInRoom(ctx context.Context, rsAPI api.RoomserverInternalAPI, use
 	}, &membershipRes)
 	if err != nil {
 		util.GetLogger(ctx).WithError(err).Error("QueryCurrentState: could not query membership for user")
-		e := jsonerror.InternalServerError()
-		return &e
+		//e := jsonerror.InternalServerError()
+		//return &e
 	}
 	ev := membershipRes.StateEvents[tuple]
 	if ev == nil {
