@@ -173,7 +173,10 @@ type txnReq struct {
 	// new events which the roomserver does not know about
 	newEvents      map[string]bool
 	newEventsMutex sync.RWMutex
-	work           string // metrics
+	// invalid events which failed signature checks, don't bother
+	// refetching them
+	invalidEvents map[string]struct{}
+	work          string // metrics
 }
 
 // A subset of FederationClient functionality that txn requires. Useful for testing.
@@ -236,19 +239,25 @@ func (t *txnReq) processTransaction(ctx context.Context) (*gomatrixserverlib.Res
 		}
 		if err = gomatrixserverlib.VerifyAllEventSignatures(ctx, []*gomatrixserverlib.Event{event}, t.keys); err != nil {
 			util.GetLogger(ctx).WithError(err).Warnf("Transaction: Couldn't validate signature of event %q", event.EventID())
-			/*
-				results[event.EventID()] = gomatrixserverlib.PDUResult{
-					Error: err.Error(),
-				}
-			*/
+			t.invalidEvents[event.EventID()] = struct{}{}
 			continue
 		}
 		pdus = append(pdus, event.Redact().Headered(verRes.RoomVersion))
 	}
 
 	// Process the events.
+processPDUs:
 	for _, e := range pdus {
 		evStart := time.Now()
+
+		// If the event refers to an event we've found to be invalid then
+		// there's no point in doing anything with it.
+		for _, id := range append(e.AuthEventIDs(), e.PrevEventIDs()...) {
+			if _, ok := t.invalidEvents[id]; ok {
+				continue processPDUs
+			}
+		}
+
 		if err := t.processEvent(ctx, e.Unwrap()); err != nil {
 			// If the error is due to the event itself being bad then we skip
 			// it and move onto the next event. We report an error so that the
@@ -1216,6 +1225,7 @@ func (t *txnReq) lookupEvent(ctx context.Context, roomVersion gomatrixserverlib.
 	}
 	if err := gomatrixserverlib.VerifyAllEventSignatures(ctx, []*gomatrixserverlib.Event{event}, t.keys); err != nil {
 		util.GetLogger(ctx).WithError(err).Warnf("Transaction: Couldn't validate signature of event %q", event.EventID())
+		t.invalidEvents[event.EventID()] = struct{}{}
 		return nil, verifySigError{event.EventID(), err}
 	}
 	h := event.Headered(roomVersion)
