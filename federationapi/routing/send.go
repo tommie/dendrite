@@ -235,14 +235,13 @@ func (t *txnReq) processTransaction(ctx context.Context) (*gomatrixserverlib.Res
 			continue
 		}
 		if err = gomatrixserverlib.VerifyAllEventSignatures(ctx, []*gomatrixserverlib.Event{event}, t.keys); err != nil {
-			event = event.Redact()
+			util.GetLogger(ctx).WithError(err).Warnf("Transaction: Couldn't validate signature of event %q", event.EventID())
 			/*
-				util.GetLogger(ctx).WithError(err).Warnf("Transaction: Couldn't validate signature of event %q", event.EventID())
 				results[event.EventID()] = gomatrixserverlib.PDUResult{
 					Error: err.Error(),
 				}
-				continue
 			*/
+			continue
 		}
 		pdus = append(pdus, event.Redact().Headered(verRes.RoomVersion))
 	}
