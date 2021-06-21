@@ -102,14 +102,15 @@ func Send(
 	mu *internal.MutexByRoom,
 ) util.JSONResponse {
 	t := txnReq{
-		rsAPI:      rsAPI,
-		eduAPI:     eduAPI,
-		keys:       keys,
-		federation: federation,
-		haveEvents: make(map[string]*gomatrixserverlib.HeaderedEvent),
-		newEvents:  make(map[string]bool),
-		keyAPI:     keyAPI,
-		roomsMu:    mu,
+		rsAPI:         rsAPI,
+		eduAPI:        eduAPI,
+		keys:          keys,
+		federation:    federation,
+		haveEvents:    make(map[string]*gomatrixserverlib.HeaderedEvent),
+		invalidEvents: make(map[string]struct{}),
+		newEvents:     make(map[string]bool),
+		keyAPI:        keyAPI,
+		roomsMu:       mu,
 	}
 
 	var txnEvents struct {
