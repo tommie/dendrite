@@ -483,12 +483,14 @@ func (t *txnReq) getServers(ctx context.Context, roomID string, eventOrigin goma
 		return t.servers
 	}
 	dedupe := map[gomatrixserverlib.ServerName]struct{}{}
+	count := 1
 	t.servers = []gomatrixserverlib.ServerName{t.Origin} // transaction origin
 	dedupe[t.Origin] = struct{}{}
 	if eventOrigin != "" {
 		if _, ok := dedupe[eventOrigin]; !ok {
 			t.servers = append(t.servers, eventOrigin) // event origin, if specified
 			dedupe[eventOrigin] = struct{}{}
+			count++
 		}
 	}
 	serverReq := &api.QueryServerJoinedToRoomRequest{
@@ -500,6 +502,10 @@ func (t *txnReq) getServers(ctx context.Context, roomID string, eventOrigin goma
 			if _, ok := dedupe[server]; !ok {
 				t.servers = append(t.servers, server)
 				dedupe[server] = struct{}{}
+				count++
+				if count == 10 {
+					break
+				}
 			}
 		}
 		util.GetLogger(ctx).Infof("Found %d server(s) to query for missing events in %q", len(t.servers), roomID)
