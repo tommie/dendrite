@@ -482,18 +482,29 @@ func (t *txnReq) getServers(ctx context.Context, roomID string, eventOrigin goma
 	if t.servers != nil {
 		return t.servers
 	}
+	dedupe := map[gomatrixserverlib.ServerName]struct{}{}
 	t.servers = []gomatrixserverlib.ServerName{t.Origin} // transaction origin
+	dedupe[t.Origin] = struct{}{}
 	if eventOrigin != "" {
-		t.servers = append(t.servers, eventOrigin) // event origin, if specified
+		if _, ok := dedupe[eventOrigin]; !ok {
+			t.servers = append(t.servers, eventOrigin) // event origin, if specified
+			dedupe[eventOrigin] = struct{}{}
+		}
 	}
 	serverReq := &api.QueryServerJoinedToRoomRequest{
 		RoomID: roomID,
 	}
 	serverRes := &api.QueryServerJoinedToRoomResponse{}
 	if err := t.rsAPI.QueryServerJoinedToRoom(ctx, serverReq, serverRes); err == nil {
-		t.servers = append(t.servers, serverRes.ServerNames...)
+		for _, server := range serverRes.ServerNames {
+			if _, ok := dedupe[server]; !ok {
+				t.servers = append(t.servers, server)
+				dedupe[server] = struct{}{}
+			}
+		}
 		util.GetLogger(ctx).Infof("Found %d server(s) to query for missing events in %q", len(t.servers), roomID)
 	}
+
 	return t.servers
 }
 
