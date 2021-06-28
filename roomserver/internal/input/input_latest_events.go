@@ -288,6 +288,9 @@ func (u *latestEventsUpdater) calculateLatest(
 	newEvent *gomatrixserverlib.Event,
 	newStateAndRef types.StateAtEventAndReference,
 ) (bool, error) {
+	u.api.roomMutexes.Lock(u.event.EventID())
+	defer u.api.roomMutexes.Unlock(u.event.EventID())
+
 	// First of all, get a list of all of the events in our current
 	// set of forward extremities.
 	existingRefs := make(map[string]*types.StateAtEventAndReference)
