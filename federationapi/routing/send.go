@@ -498,6 +498,9 @@ func (t *txnReq) getServers(ctx context.Context, roomID string) []gomatrixserver
 }
 
 func (t *txnReq) processEvent(ctx context.Context, e *gomatrixserverlib.Event) error {
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
 	logger := util.GetLogger(ctx).WithField("event_id", e.EventID()).WithField("room_id", e.RoomID())
 	t.work = "" // reset from previous event
 
