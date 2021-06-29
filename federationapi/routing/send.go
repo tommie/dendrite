@@ -734,7 +734,7 @@ func (t *txnReq) processEventWithMissingState(
 	// newly resolved state. This marks the "oldest" point in the backfill and
 	// sets the baseline state for any new events after this.
 	err = api.SendEventWithState(
-		context.Background(),
+		gmectx,
 		t.rsAPI,
 		api.KindOld,
 		resolvedState,
@@ -754,7 +754,7 @@ func (t *txnReq) processEventWithMissingState(
 		headeredNewEvents[i] = newEvent.Headered(roomVersion)
 	}
 	if err = api.SendEvents(
-		context.Background(),
+		gmectx,
 		t.rsAPI,
 		api.KindOld,
 		append(headeredNewEvents, e.Headered(roomVersion)),

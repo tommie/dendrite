@@ -64,6 +64,11 @@ func (w *inputWorker) start() {
 			if !ok {
 				continue
 			}
+			select {
+			case <-task.ctx.Done():
+				continue
+			default:
+			}
 			hooks.Run(hooks.KindNewEventReceived, task.event.Event)
 			_, task.err = w.r.processRoomEvent(task.ctx, task.event)
 			if task.err == nil {
@@ -122,7 +127,7 @@ func (r *Inputer) WriteOutputEvents(roomID string, updates []api.OutputEvent) er
 
 // InputRoomEvents implements api.RoomserverInternalAPI
 func (r *Inputer) InputRoomEvents(
-	_ context.Context,
+	ctx context.Context,
 	request *api.InputRoomEventsRequest,
 	response *api.InputRoomEventsResponse,
 ) {
@@ -154,7 +159,7 @@ func (r *Inputer) InputRoomEvents(
 		// the wait group, so that the worker can notify us when this specific
 		// task has been finished.
 		tasks[i] = &inputTask{
-			ctx:   context.Background(),
+			ctx:   ctx,
 			event: &request.InputRoomEvents[i],
 			wg:    wg,
 		}
@@ -166,19 +171,17 @@ func (r *Inputer) InputRoomEvents(
 		worker.input.push(tasks[i])
 	}
 
-	/*
-		// Wait for all of the workers to return results about our tasks.
-		wg.Wait()
+	// Wait for all of the workers to return results about our tasks.
+	wg.Wait()
 
-		// If any of the tasks returned an error, we should probably report
-		// that back to the caller.
-		for _, task := range tasks {
-			if task.err != nil {
-				response.ErrMsg = task.err.Error()
-				_, rejected := task.err.(*gomatrixserverlib.NotAllowed)
-				response.NotAllowed = rejected
-				return
-			}
+	// If any of the tasks returned an error, we should probably report
+	// that back to the caller.
+	for _, task := range tasks {
+		if task.err != nil {
+			response.ErrMsg = task.err.Error()
+			_, rejected := task.err.(*gomatrixserverlib.NotAllowed)
+			response.NotAllowed = rejected
+			return
 		}
-	*/
+	}
 }
