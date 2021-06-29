@@ -596,6 +596,8 @@ withNextEvent:
 			); err != nil {
 				return fmt.Errorf("api.SendEvents: %w", err)
 			}
+			t.hadEvents[ev.EventID()] = true // if the roomserver didn't know about the event before, it does now
+			t.cacheAndReturn(ev.Headered(stateResp.RoomVersion))
 			delete(missingAuthEvents, missingAuthEventID)
 			continue withNextEvent
 		}
