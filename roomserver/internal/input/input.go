@@ -130,9 +130,9 @@ func (r *Inputer) InputRoomEvents(
 	request *api.InputRoomEventsRequest,
 	response *api.InputRoomEventsResponse,
 ) {
-	// Create a wait group. Each task that we dispatch will call Done on
-	// this wait group so that we know when all of our events have been
-	// processed.
+	// Each of the requests will return to us on the wait channel.
+	// We can also close the wait channel early if the request context
+	// comes to an end, so that we don't leak goroutines.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	count := len(request.InputRoomEvents)
