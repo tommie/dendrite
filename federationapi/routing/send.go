@@ -739,7 +739,7 @@ func (t *txnReq) processEventWithMissingState(
 		api.KindOld,
 		resolvedState,
 		backwardsExtremity.Headered(roomVersion),
-		t.haveEventIDs(),
+		nil,
 	)
 	if err != nil {
 		return fmt.Errorf("api.SendEventWithState: %w", err)
