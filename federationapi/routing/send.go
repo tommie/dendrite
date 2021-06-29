@@ -546,7 +546,7 @@ func (t *txnReq) processEvent(ctx context.Context, e *gomatrixserverlib.Event) e
 	// If the event fail auth checks, gmsl.NotAllowed error will be returned which we be silently
 	// discarded by the caller of this function
 	return api.SendEvents(
-		context.Background(),
+		ctx,
 		t.rsAPI,
 		api.KindNew,
 		[]*gomatrixserverlib.HeaderedEvent{
