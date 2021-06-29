@@ -618,9 +618,14 @@ func checkAllowedByState(e *gomatrixserverlib.Event, stateEvents []*gomatrixserv
 	return gomatrixserverlib.Allowed(e, &authUsingState)
 }
 
+var processEventWithMissingStateMutexes = internal.NewMutexByRoom()
+
 func (t *txnReq) processEventWithMissingState(
 	ctx context.Context, e *gomatrixserverlib.Event, roomVersion gomatrixserverlib.RoomVersion,
 ) error {
+	processEventWithMissingStateMutexes.Lock(string(t.Origin) + e.RoomID())
+	defer processEventWithMissingStateMutexes.Unlock(string(t.Origin) + e.RoomID())
+
 	// Do this with a fresh context, so that we keep working even if the
 	// original request times out. With any luck, by the time the remote
 	// side retries, we'll have fetched the missing state.
