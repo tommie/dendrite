@@ -466,21 +466,23 @@ func (t *txnReq) processDeviceListUpdate(ctx context.Context, e gomatrixserverli
 	}
 }
 
-func (t *txnReq) getServers(ctx context.Context, roomID string) []gomatrixserverlib.ServerName {
+func (t *txnReq) getServers(_ context.Context, _ string) []gomatrixserverlib.ServerName {
 	t.serversMutex.Lock()
 	defer t.serversMutex.Unlock()
 	if t.servers != nil {
 		return t.servers
 	}
 	t.servers = []gomatrixserverlib.ServerName{t.Origin}
-	serverReq := &api.QueryServerJoinedToRoomRequest{
-		RoomID: roomID,
-	}
-	serverRes := &api.QueryServerJoinedToRoomResponse{}
-	if err := t.rsAPI.QueryServerJoinedToRoom(ctx, serverReq, serverRes); err == nil {
-		t.servers = append(t.servers, serverRes.ServerNames...)
-		util.GetLogger(ctx).Infof("Found %d server(s) to query for missing events in %q", len(t.servers), roomID)
-	}
+	/*
+		serverReq := &api.QueryServerJoinedToRoomRequest{
+			RoomID: roomID,
+		}
+		serverRes := &api.QueryServerJoinedToRoomResponse{}
+		if err := t.rsAPI.QueryServerJoinedToRoom(ctx, serverReq, serverRes); err == nil {
+			t.servers = append(t.servers, serverRes.ServerNames...)
+			util.GetLogger(ctx).Infof("Found %d server(s) to query for missing events in %q", len(t.servers), roomID)
+		}
+	*/
 	return t.servers
 }
 
