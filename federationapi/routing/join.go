@@ -294,6 +294,7 @@ func SendJoin(
 			},
 			cfg.Matrix.ServerName,
 			nil,
+			false,
 		); err != nil {
 			util.GetLogger(httpReq.Context()).WithError(err).Error("SendEvents failed")
 			return jsonerror.InternalServerError()

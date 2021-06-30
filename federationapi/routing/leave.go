@@ -260,6 +260,7 @@ func SendLeave(
 		},
 		cfg.Matrix.ServerName,
 		nil,
+		false,
 	); err != nil {
 		util.GetLogger(httpReq.Context()).WithError(err).Error("producer.SendEvents failed")
 		return jsonerror.InternalServerError()

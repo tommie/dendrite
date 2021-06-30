@@ -190,7 +190,7 @@ func mustSendEvents(t *testing.T, ver gomatrixserverlib.RoomVersion, events []js
 	t.Helper()
 	rsAPI, dp := mustCreateRoomserverAPI(t)
 	hevents := mustLoadRawEvents(t, ver, events)
-	if err := api.SendEvents(ctx, rsAPI, api.KindNew, hevents, testOrigin, nil); err != nil {
+	if err := api.SendEvents(ctx, rsAPI, api.KindNew, hevents, testOrigin, nil, false); err != nil {
 		t.Errorf("failed to SendEvents: %s", err)
 	}
 	return rsAPI, dp, hevents
@@ -336,7 +336,7 @@ func TestOutputRewritesState(t *testing.T) {
 	deleteDatabase()
 	rsAPI, producer := mustCreateRoomserverAPI(t)
 	defer deleteDatabase()
-	err := api.SendEvents(context.Background(), rsAPI, api.KindNew, originalEvents, testOrigin, nil)
+	err := api.SendEvents(context.Background(), rsAPI, api.KindNew, originalEvents, testOrigin, nil, false)
 	if err != nil {
 		t.Fatalf("failed to send original events: %s", err)
 	}
@@ -371,7 +371,7 @@ func TestOutputRewritesState(t *testing.T) {
 		HasState:      true,
 		StateEventIDs: stateIDs,
 	})
-	if err := api.SendInputRoomEvents(context.Background(), rsAPI, inputEvents); err != nil {
+	if err := api.SendInputRoomEvents(context.Background(), rsAPI, inputEvents, false); err != nil {
 		t.Fatalf("SendInputRoomEvents returned error for rewrite events: %s", err)
 	}
 	// we should just have one output event with the entire state of the room in it

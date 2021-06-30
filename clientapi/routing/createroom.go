@@ -365,6 +365,7 @@ func createRoom(
 			},
 			ev.Headered(roomVersion),
 			nil,
+			false,
 		); err != nil {
 			util.GetLogger(req.Context()).WithError(err).Error("SendEventWithState failed")
 			return jsonerror.InternalServerError()

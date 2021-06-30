@@ -550,6 +550,7 @@ func (t *txnReq) processEvent(ctx context.Context, e *gomatrixserverlib.Event) e
 		},
 		api.DoNotSendToOtherServers,
 		nil,
+		false,
 	)
 }
 
@@ -592,6 +593,7 @@ withNextEvent:
 						SendAsServer: api.DoNotSendToOtherServers,
 					},
 				},
+				false,
 			); err != nil {
 				return fmt.Errorf("api.SendEvents: %w", err)
 			}
@@ -741,6 +743,7 @@ func (t *txnReq) processEventWithMissingState(
 		resolvedState,
 		backwardsExtremity.Headered(roomVersion),
 		t.hadEvents,
+		true,
 	)
 	if err != nil {
 		return fmt.Errorf("api.SendEventWithState: %w", err)
@@ -761,6 +764,7 @@ func (t *txnReq) processEventWithMissingState(
 		append(headeredNewEvents, e.Headered(roomVersion)),
 		api.DoNotSendToOtherServers,
 		nil,
+		true,
 	); err != nil {
 		return fmt.Errorf("api.SendEvents: %w", err)
 	}
