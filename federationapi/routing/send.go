@@ -572,7 +572,7 @@ withNextEvent:
 			if err != nil {
 				logger.WithError(err).Warnf("Failed to retrieve auth event %q", missingAuthEventID)
 				if errors.Is(err, context.DeadlineExceeded) {
-					break
+					return err
 				}
 				continue withNextServer
 			}
