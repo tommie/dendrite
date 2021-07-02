@@ -53,7 +53,6 @@ type inputWorker struct {
 	r       *Inputer
 	running atomic.Bool
 	input   *fifoQueue
-	roomID  string
 }
 
 // Guarded by a CAS on w.running
@@ -126,7 +125,7 @@ func (r *Inputer) WriteOutputEvents(roomID string, updates []api.OutputEvent) er
 }
 
 func init() {
-	prometheus.MustRegister(processRoomEventDuration)
+	prometheus.MustRegister(roomserverInputBackpressure)
 }
 
 var roomserverInputBackpressure = prometheus.NewSummaryVec(
