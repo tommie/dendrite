@@ -67,7 +67,7 @@ func (w *inputWorker) start() {
 			}
 			roomserverInputBackpressure.With(prometheus.Labels{
 				"room_id": task.event.Event.RoomID(),
-			}).Observe(float64(w.input.count))
+			}).Dec()
 			hooks.Run(hooks.KindNewEventReceived, task.event.Event)
 			_, task.err = w.r.processRoomEvent(task.ctx, task.event)
 			if task.err == nil {
@@ -128,8 +128,8 @@ func init() {
 	prometheus.MustRegister(roomserverInputBackpressure)
 }
 
-var roomserverInputBackpressure = prometheus.NewSummaryVec(
-	prometheus.SummaryOpts{
+var roomserverInputBackpressure = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
 		Namespace: "dendrite",
 		Subsystem: "roomserver",
 		Name:      "input_backpressure",
@@ -184,7 +184,7 @@ func (r *Inputer) InputRoomEvents(
 		worker.input.push(tasks[i])
 		roomserverInputBackpressure.With(prometheus.Labels{
 			"room_id": roomID,
-		}).Observe(float64(worker.input.count))
+		}).Inc()
 	}
 
 	// Wait for all of the workers to return results about our tasks.
