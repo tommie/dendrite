@@ -14,6 +14,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
+	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
 
@@ -170,6 +171,7 @@ func (d *Database) AddState(
 				for _, event := range events {
 					if state[i].EventNID == event {
 						state = append(state[:i], state[i+1:]...)
+						logrus.Warn("PRUNING SUPERFLUOUS EVENT")
 					}
 				}
 			}
