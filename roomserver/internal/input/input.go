@@ -26,6 +26,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/hooks"
 	"github.com/matrix-org/dendrite/roomserver/acls"
 	"github.com/matrix-org/dendrite/roomserver/api"
+	"github.com/matrix-org/dendrite/roomserver/internal/helpers"
 	"github.com/matrix-org/dendrite/roomserver/storage"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/prometheus/client_golang/prometheus"
@@ -53,11 +54,16 @@ type inputWorker struct {
 	r       *Inputer
 	running atomic.Bool
 	input   *fifoQueue
+	db      *helpers.CachedDB
 }
 
 // Guarded by a CAS on w.running
 func (w *inputWorker) start() {
-	defer w.running.Store(false)
+	defer func() {
+		w.db = nil
+		w.running.Store(false)
+	}()
+	w.db = helpers.NewCachedDB(w.r.DB)
 	for {
 		select {
 		case <-w.input.wait():
@@ -69,7 +75,7 @@ func (w *inputWorker) start() {
 				"room_id": task.event.Event.RoomID(),
 			}).Dec()
 			hooks.Run(hooks.KindNewEventReceived, task.event.Event)
-			_, task.err = w.r.processRoomEvent(task.ctx, task.event)
+			_, task.err = w.r.processRoomEvent(task.ctx, task.event, w.db)
 			if task.err == nil {
 				hooks.Run(hooks.KindNewEventPersisted, task.event.Event)
 			} else {

@@ -26,6 +26,7 @@ import (
 	"github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/roomserver/internal/helpers"
 	"github.com/matrix-org/dendrite/roomserver/state"
+	"github.com/matrix-org/dendrite/roomserver/storage"
 	"github.com/matrix-org/dendrite/roomserver/types"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
@@ -62,6 +63,7 @@ var processRoomEventDuration = prometheus.NewHistogramVec(
 func (r *Inputer) processRoomEvent(
 	ctx context.Context,
 	input *api.InputRoomEvent,
+	db storage.Database,
 ) (eventID string, err error) {
 	// Measure how long it takes to process this event.
 	started := time.Now()
@@ -79,7 +81,7 @@ func (r *Inputer) processRoomEvent(
 	// if we have already got this event then do not process it again, if the input kind is an outlier.
 	// Outliers contain no extra information which may warrant a re-processing.
 	if input.Kind == api.KindOutlier {
-		evs, err2 := r.DB.EventsFromIDs(ctx, []string{event.EventID()})
+		evs, err2 := db.EventsFromIDs(ctx, []string{event.EventID()})
 		if err2 == nil && len(evs) == 1 {
 			// check hash matches if we're on early room versions where the event ID was a random string
 			idFormat, err2 := headered.RoomVersion.EventIDFormat()
@@ -101,7 +103,7 @@ func (r *Inputer) processRoomEvent(
 	// Check that the event passes authentication checks and work out
 	// the numeric IDs for the auth events.
 	isRejected := false
-	authEventNIDs, rejectionErr := helpers.CheckAuthEvents(ctx, r.DB, headered, input.AuthEventIDs)
+	authEventNIDs, rejectionErr := helpers.CheckAuthEvents(ctx, db, headered, input.AuthEventIDs)
 	if rejectionErr != nil {
 		logrus.WithError(rejectionErr).WithField("event_id", event.EventID()).WithField("auth_event_ids", input.AuthEventIDs).Error("helpers.CheckAuthEvents failed for event, rejecting event")
 		isRejected = true
@@ -111,7 +113,7 @@ func (r *Inputer) processRoomEvent(
 	if input.Kind == api.KindNew {
 		// Check that the event passes authentication checks based on the
 		// current room state.
-		softfail, err = helpers.CheckForSoftFail(ctx, r.DB, headered, input.StateEventIDs)
+		softfail, err = helpers.CheckForSoftFail(ctx, db, headered, input.StateEventIDs)
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"event_id": event.EventID(),
