@@ -16,6 +16,7 @@ package query
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -388,6 +389,45 @@ func (r *Queryer) QueryServerAllowedToSeeEvent(
 		return
 	}
 	roomID := events[0].RoomID()
+
+	isRoomPublicReq := &api.QueryCurrentStateRequest{
+		RoomID: roomID,
+		StateTuples: []gomatrixserverlib.StateKeyTuple{
+			{EventType: gomatrixserverlib.MRoomCreate},
+			{EventType: gomatrixserverlib.MRoomHistoryVisibility},
+		},
+	}
+	isRoomPublicRes := &api.QueryCurrentStateResponse{}
+	if err = r.QueryCurrentState(ctx, isRoomPublicReq, isRoomPublicRes); err != nil {
+		return fmt.Errorf("r.Queryer.QueryCurrentState: %w", err)
+	}
+	for _, event := range isRoomPublicRes.StateEvents {
+		switch event.Type() {
+		case gomatrixserverlib.MRoomCreate:
+			content := struct {
+				Federate bool `json:"m.federate"`
+			}{
+				Federate: true,
+			}
+			if err = json.Unmarshal(event.Content(), &content); err != nil {
+				continue
+			}
+			if !content.Federate {
+				response.AllowedToSeeEvent = false
+				return nil
+			}
+
+		case gomatrixserverlib.MRoomHistoryVisibility:
+			var content gomatrixserverlib.HistoryVisibilityContent
+			if err = json.Unmarshal(event.Content(), &content); err != nil {
+				continue
+			}
+			if content.HistoryVisibility == gomatrixserverlib.Public {
+				response.AllowedToSeeEvent = true
+				return nil
+			}
+		}
+	}
 
 	inRoomReq := &api.QueryServerJoinedToRoomRequest{
 		RoomID:     roomID,
