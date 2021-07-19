@@ -428,12 +428,12 @@ var calculateStateDurations = prometheus.NewHistogramVec(
 	prometheus.HistogramOpts{
 		Namespace: "dendrite",
 		Subsystem: "roomserver",
-		Name:      "calculate_state_duration_microseconds",
+		Name:      "calculate_state_duration_milliseconds",
 		Help:      "How long it takes to calculate the state after a list of events",
 		Buckets: []float64{ // milliseconds
-			5, 10, 25, 50, 75, 100, 250, 500,
+			5, 10, 25, 50, 75, 100, 200, 300, 400, 500,
 			1000, 2000, 3000, 4000, 5000, 6000,
-			7000, 8000, 9000, 10000, 15000, 20000,
+			7000, 8000, 9000, 10000, 15000, 20000, 30000,
 		},
 	},
 	// Takes two labels:
@@ -453,7 +453,7 @@ var calculateStateDurations = prometheus.NewHistogramVec(
 	//    _load_state_block_nids -> Failed loading the state block nids for a single previous state.
 	//    _load_combined_state -> Failed to load the combined state.
 	//    _resolve_conflicts -> Failed to resolve conflicts.
-	[]string{"algorithm", "outcome"},
+	[]string{"algorithm", "outcome", "room_id"},
 )
 
 var calculateStatePrevEventLength = prometheus.NewSummaryVec(
