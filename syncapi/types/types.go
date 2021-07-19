@@ -361,23 +361,23 @@ type Response struct {
 	NextBatch   StreamingToken `json:"next_batch"`
 	AccountData struct {
 		Events []gomatrixserverlib.ClientEvent `json:"events,omitempty"`
-	} `json:"account_data"`
+	} `json:"account_data,omitempty"`
 	Presence struct {
 		Events []gomatrixserverlib.ClientEvent `json:"events,omitempty"`
-	} `json:"presence"`
+	} `json:"presence,omitempty"`
 	Rooms struct {
-		Join   map[string]JoinResponse   `json:"join"`
-		Peek   map[string]JoinResponse   `json:"peek"`
-		Invite map[string]InviteResponse `json:"invite"`
-		Leave  map[string]LeaveResponse  `json:"leave"`
-	} `json:"rooms"`
+		Join   map[string]JoinResponse   `json:"join,omitempty"`
+		Peek   map[string]JoinResponse   `json:"peek,omitempty"`
+		Invite map[string]InviteResponse `json:"invite,omitempty"`
+		Leave  map[string]LeaveResponse  `json:"leave,omitempty"`
+	} `json:"rooms,omitempty"`
 	ToDevice struct {
-		Events []gomatrixserverlib.SendToDeviceEvent `json:"events"`
-	} `json:"to_device"`
+		Events []gomatrixserverlib.SendToDeviceEvent `json:"events,omitempty"`
+	} `json:"to_device,omitempty"`
 	DeviceLists struct {
 		Changed []string `json:"changed,omitempty"`
 		Left    []string `json:"left,omitempty"`
-	} `json:"device_lists"`
+	} `json:"device_lists,omitempty"`
 	DeviceListsOTKCount map[string]int `json:"device_one_time_keys_count,omitempty"`
 }
 
@@ -417,19 +417,19 @@ func (r *Response) IsEmpty() bool {
 // JoinResponse represents a /sync response for a room which is under the 'join' or 'peek' key.
 type JoinResponse struct {
 	State struct {
-		Events []gomatrixserverlib.ClientEvent `json:"events"`
-	} `json:"state"`
+		Events []gomatrixserverlib.ClientEvent `json:"events,omitempty"`
+	} `json:"state,omitempty"`
 	Timeline struct {
-		Events    []gomatrixserverlib.ClientEvent `json:"events"`
-		Limited   bool                            `json:"limited"`
+		Events    []gomatrixserverlib.ClientEvent `json:"events,omitempty"`
+		Limited   bool                            `json:"limited,omitempty"`
 		PrevBatch *TopologyToken                  `json:"prev_batch,omitempty"`
-	} `json:"timeline"`
+	} `json:"timeline,omitempty"`
 	Ephemeral struct {
-		Events []gomatrixserverlib.ClientEvent `json:"events"`
-	} `json:"ephemeral"`
+		Events []gomatrixserverlib.ClientEvent `json:"events,omitempty"`
+	} `json:"ephemeral,omitempty"`
 	AccountData struct {
-		Events []gomatrixserverlib.ClientEvent `json:"events"`
-	} `json:"account_data"`
+		Events []gomatrixserverlib.ClientEvent `json:"events,omitempty"`
+	} `json:"account_data,omitempty"`
 }
 
 // NewJoinResponse creates an empty response with initialised arrays.
@@ -445,8 +445,8 @@ func NewJoinResponse() *JoinResponse {
 // InviteResponse represents a /sync response for a room which is under the 'invite' key.
 type InviteResponse struct {
 	InviteState struct {
-		Events []json.RawMessage `json:"events"`
-	} `json:"invite_state"`
+		Events []json.RawMessage `json:"events,omitempty"`
+	} `json:"invite_state,omitempty"`
 }
 
 // NewInviteResponse creates an empty response with initialised arrays.
@@ -475,13 +475,13 @@ func NewInviteResponse(event *gomatrixserverlib.HeaderedEvent) *InviteResponse {
 // LeaveResponse represents a /sync response for a room which is under the 'leave' key.
 type LeaveResponse struct {
 	State struct {
-		Events []gomatrixserverlib.ClientEvent `json:"events"`
-	} `json:"state"`
+		Events []gomatrixserverlib.ClientEvent `json:"events,omitempty"`
+	} `json:"state,omitempty"`
 	Timeline struct {
-		Events    []gomatrixserverlib.ClientEvent `json:"events"`
-		Limited   bool                            `json:"limited"`
+		Events    []gomatrixserverlib.ClientEvent `json:"events,omitempty"`
+		Limited   bool                            `json:"limited,omitempty"`
 		PrevBatch *TopologyToken                  `json:"prev_batch,omitempty"`
-	} `json:"timeline"`
+	} `json:"timeline,omitempty"`
 }
 
 // NewLeaveResponse creates an empty response with initialised arrays.
