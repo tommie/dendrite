@@ -453,7 +453,7 @@ var calculateStateDurations = prometheus.NewHistogramVec(
 	//    _load_state_block_nids -> Failed loading the state block nids for a single previous state.
 	//    _load_combined_state -> Failed to load the combined state.
 	//    _resolve_conflicts -> Failed to resolve conflicts.
-	[]string{"algorithm", "outcome", "room_id"},
+	[]string{"algorithm", "outcome"},
 )
 
 var calculateStatePrevEventLength = prometheus.NewSummaryVec(
