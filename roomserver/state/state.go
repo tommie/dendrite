@@ -501,9 +501,8 @@ func (c *calculateStateMetrics) stop(stateNID types.StateSnapshotNID, err error)
 	} else {
 		outcome = "failure"
 	}
-	endTime := time.Now()
 	calculateStateDurations.WithLabelValues(c.algorithm, outcome).Observe(
-		float64(endTime.Sub(c.startTime).Nanoseconds()) / 1000.,
+		float64(time.Since(c.startTime).Milliseconds()),
 	)
 	calculateStatePrevEventLength.WithLabelValues(c.algorithm, outcome).Observe(
 		float64(c.prevEventLength),
