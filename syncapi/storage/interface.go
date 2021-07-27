@@ -29,6 +29,21 @@ import (
 type Database interface {
 	internal.PartitionStorer
 
+	PDUCompleteSync(
+		ctx context.Context,
+		req *types.SyncRequest,
+		joinedRoomIDs []string,
+		r types.Range,
+		stateFilter *gomatrixserverlib.StateFilter,
+		eventFilter *gomatrixserverlib.RoomEventFilter,
+	) error
+	PDUIncrementalSync(
+		ctx context.Context,
+		req *types.SyncRequest,
+		r types.Range,
+		from, to types.StreamPosition,
+	) error
+
 	MaxStreamPositionForPDUs(ctx context.Context) (types.StreamPosition, error)
 	MaxStreamPositionForReceipts(ctx context.Context) (types.StreamPosition, error)
 	MaxStreamPositionForInvites(ctx context.Context) (types.StreamPosition, error)
@@ -36,8 +51,6 @@ type Database interface {
 	MaxStreamPositionForSendToDeviceMessages(ctx context.Context) (types.StreamPosition, error)
 
 	CurrentState(ctx context.Context, roomID string, stateFilterPart *gomatrixserverlib.StateFilter, excludeEventIDs []string) ([]*gomatrixserverlib.HeaderedEvent, error)
-	GetStateDeltasForFullStateSync(ctx context.Context, device *userapi.Device, r types.Range, userID string, stateFilter *gomatrixserverlib.StateFilter) ([]types.StateDelta, []string, error)
-	GetStateDeltas(ctx context.Context, device *userapi.Device, r types.Range, userID string, stateFilter *gomatrixserverlib.StateFilter) ([]types.StateDelta, []string, error)
 	RoomIDsWithMembership(ctx context.Context, userID string, membership string) ([]string, error)
 
 	RecentEvents(ctx context.Context, roomID string, r types.Range, eventFilter *gomatrixserverlib.RoomEventFilter, chronologicalOrder bool, onlySyncEvents bool) ([]types.StreamEvent, bool, error)

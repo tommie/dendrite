@@ -661,8 +661,8 @@ func (d *Database) fetchMissingStateEvents(
 // exclusive of oldPos, inclusive of newPos, for the rooms in which
 // the user has new membership events.
 // A list of joined room IDs is also returned in case the caller needs it.
-func (d *Database) GetStateDeltas(
-	ctx context.Context, device *userapi.Device,
+func (d *Database) getStateDeltas(
+	ctx context.Context, txn *sql.Tx, device *userapi.Device,
 	r types.Range, userID string,
 	stateFilter *gomatrixserverlib.StateFilter,
 ) ([]types.StateDelta, []string, error) {
@@ -674,12 +674,6 @@ func (d *Database) GetStateDeltas(
 	//     * Check if user is still CURRENTLY invited to the room. If so, add room to 'invited' block.
 	//     * Check if the user is CURRENTLY (TODO) left/banned. If so, add room to 'archived' block.
 	// - Get all CURRENTLY joined rooms, and add them to 'joined' block.
-	txn, err := d.readOnlySnapshot(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("d.readOnlySnapshot: %w", err)
-	}
-	var succeeded bool
-	defer sqlutil.EndTransactionWithCheck(txn, &succeeded, &err)
 
 	var deltas []types.StateDelta
 
@@ -764,7 +758,6 @@ func (d *Database) GetStateDeltas(
 		})
 	}
 
-	succeeded = true
 	return deltas, joinedRoomIDs, nil
 }
 
@@ -772,18 +765,11 @@ func (d *Database) GetStateDeltas(
 // requests with full_state=true.
 // Fetches full state for all joined rooms and uses selectStateInRange to get
 // updates for other rooms.
-func (d *Database) GetStateDeltasForFullStateSync(
-	ctx context.Context, device *userapi.Device,
+func (d *Database) getStateDeltasForFullStateSync(
+	ctx context.Context, txn *sql.Tx, device *userapi.Device,
 	r types.Range, userID string,
 	stateFilter *gomatrixserverlib.StateFilter,
 ) ([]types.StateDelta, []string, error) {
-	txn, err := d.readOnlySnapshot(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("d.readOnlySnapshot: %w", err)
-	}
-	var succeeded bool
-	defer sqlutil.EndTransactionWithCheck(txn, &succeeded, &err)
-
 	// Use a reasonable initial capacity
 	deltas := make(map[string]types.StateDelta)
 
@@ -860,7 +846,6 @@ func (d *Database) GetStateDeltasForFullStateSync(
 		i++
 	}
 
-	succeeded = true
 	return result, joinedRoomIDs, nil
 }
 
