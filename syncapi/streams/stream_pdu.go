@@ -47,15 +47,6 @@ func (p *PDUStreamProvider) CompleteSync(
 		return from
 	}
 
-	// Add peeked rooms.
-	/*
-		peeks, err := p.DB.PeeksInRange(ctx, req.Device.UserID, req.Device.ID, r)
-		if err != nil {
-			req.Log.WithError(err).Error("p.DB.PeeksInRange failed")
-			return from
-		}
-	*/
-
 	stateFilter := req.Filter.Room.State
 	eventFilter := req.Filter.Room.Timeline
 
@@ -63,24 +54,6 @@ func (p *PDUStreamProvider) CompleteSync(
 		req.Log.WithError(err).Error("p.DB.PDUCompleteSync failed")
 		return from
 	}
-
-	/*
-		for _, peek := range peeks {
-			p.queue(func() {
-				if !peek.Deleted {
-					var jr *types.JoinResponse
-					jr, err = p.getJoinResponseForCompleteSync(
-						ctx, peek.RoomID, r, &stateFilter, &eventFilter, req.WantFullState, req.Device,
-					)
-					if err != nil {
-						req.Log.WithError(err).Error("p.getJoinResponseForCompleteSync failed")
-						return
-					}
-					req.Response.Rooms.Peek[peek.RoomID] = *jr
-				}
-			})
-		}
-	*/
 
 	return to
 }

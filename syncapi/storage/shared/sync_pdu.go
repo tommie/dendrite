@@ -27,7 +27,8 @@ func (d *Database) PDUCompleteSync(
 	defer sqlutil.EndTransactionWithCheck(txn, &succeeded, &err)
 
 	for _, roomID := range joinedRoomIDs {
-		jr, err := d.getJoinResponseForCompleteSync(
+		var jr *types.JoinResponse
+		jr, err = d.getJoinResponseForCompleteSync(
 			ctx, txn, roomID, r, stateFilter, eventFilter, req.WantFullState, req.Device,
 		)
 		if err != nil {
@@ -36,6 +37,24 @@ func (d *Database) PDUCompleteSync(
 
 		req.Response.Rooms.Join[roomID] = *jr
 		req.Rooms[roomID] = gomatrixserverlib.Join
+	}
+
+	peeks, err := d.Peeks.SelectPeeksInRange(ctx, txn, req.Device.UserID, req.Device.ID, r)
+	if err != nil {
+		return fmt.Errorf("d.Peeks.SelectPeeksInRange: %w", err)
+	}
+
+	for _, peek := range peeks {
+		if !peek.Deleted {
+			var jr *types.JoinResponse
+			jr, err = d.getJoinResponseForCompleteSync(
+				ctx, txn, peek.RoomID, r, stateFilter, eventFilter, req.WantFullState, req.Device,
+			)
+			if err != nil {
+				return fmt.Errorf("d.getJoinResponseForCompleteSync: %w", err)
+			}
+			req.Response.Rooms.Peek[peek.RoomID] = *jr
+		}
 	}
 
 	succeeded = true
