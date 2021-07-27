@@ -415,7 +415,7 @@ func (oq *destinationQueue) nextTransaction(
 	ctx, cancel := context.WithTimeout(oq.process.Context(), time.Minute*5)
 	defer cancel()
 	_, err := oq.client.SendTransaction(ctx, t)
-	switch err.(type) {
+	switch e := err.(type) {
 	case nil:
 		// Clean up the transaction in the database.
 		if pduReceipts != nil {
@@ -438,6 +438,7 @@ func (oq *destinationQueue) nextTransaction(
 	case gomatrix.HTTPError:
 		// Report that we failed to send the transaction and we
 		// will retry again, subject to backoff.
+		log.WithError(err).WithField("code", e.Code).WithField("message", e.Message).WithField("content", string(e.Contents)).Error("gomatrix.HTTPError when sending transaction")
 		return false, 0, 0, err
 	default:
 		log.WithFields(log.Fields{
