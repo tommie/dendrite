@@ -38,6 +38,7 @@ func (d *Database) PDUCompleteSync(
 		req.Rooms[roomID] = gomatrixserverlib.Join
 	}
 
+	succeeded = true
 	return nil
 }
 
@@ -83,6 +84,7 @@ func (d *Database) PDUIncrementalSync(
 		}
 	}
 
+	succeeded = true
 	return nil
 }
 
