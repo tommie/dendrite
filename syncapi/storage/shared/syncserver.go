@@ -552,11 +552,18 @@ func (d *Database) GetBackwardTopologyPos(
 	ctx context.Context,
 	events []types.StreamEvent,
 ) (types.TopologyToken, error) {
+	return d.getBackwardTopologyPos(ctx, nil, events)
+}
+
+func (d *Database) getBackwardTopologyPos(
+	ctx context.Context, txn *sql.Tx,
+	events []types.StreamEvent,
+) (types.TopologyToken, error) {
 	zeroToken := types.TopologyToken{}
 	if len(events) == 0 {
 		return zeroToken, nil
 	}
-	pos, spos, err := d.Topology.SelectPositionInTopology(ctx, nil, events[0].EventID())
+	pos, spos, err := d.Topology.SelectPositionInTopology(ctx, txn, events[0].EventID())
 	if err != nil {
 		return zeroToken, err
 	}

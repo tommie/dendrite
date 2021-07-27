@@ -134,7 +134,7 @@ func (d *Database) addRoomDeltaToResponse(
 	}
 	recentEvents := d.StreamEventsToEvents(device, recentStreamEvents)
 	delta.StateEvents = removeDuplicates(delta.StateEvents, recentEvents) // roll back
-	prevBatch, err := d.GetBackwardTopologyPos(ctx, recentStreamEvents)
+	prevBatch, err := d.getBackwardTopologyPos(ctx, txn, recentStreamEvents)
 	if err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func (d *Database) getJoinResponseForCompleteSync(
 	var prevBatch *types.TopologyToken
 	if len(recentStreamEvents) > 0 {
 		var backwardTopologyPos, backwardStreamPos types.StreamPosition
-		backwardTopologyPos, backwardStreamPos, err = d.PositionInTopology(ctx, recentStreamEvents[0].EventID())
+		backwardTopologyPos, backwardStreamPos, err = d.Topology.SelectPositionInTopology(ctx, txn, recentStreamEvents[0].EventID())
 		if err != nil {
 			return
 		}
