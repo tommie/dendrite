@@ -115,8 +115,11 @@ func QueryKeys(req *http.Request, keyAPI api.KeyInternalAPI) util.JSONResponse {
 	return util.JSONResponse{
 		Code: 200,
 		JSON: map[string]interface{}{
-			"device_keys": queryRes.DeviceKeys,
-			"failures":    queryRes.Failures,
+			"device_keys":       queryRes.DeviceKeys,
+			"master_keys":       queryRes.MasterKeys,
+			"self_signing_keys": queryRes.SelfSigningKeys,
+			"user_signing_keys": queryRes.UserSigningKeys,
+			"failures":          queryRes.Failures,
 		},
 	}
 }
