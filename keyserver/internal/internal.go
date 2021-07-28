@@ -227,6 +227,9 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 	}
 
 	res.DeviceKeys = make(map[string]map[string]json.RawMessage)
+	res.MasterKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
+	res.SelfSigningKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
+	res.UserSigningKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
 	res.Failures = make(map[string]interface{})
 	// make a map from domain to device keys
 	domainToDeviceKeys := make(map[string]map[string][]string)
