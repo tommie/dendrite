@@ -429,6 +429,7 @@ func (a *KeyInternalAPI) crossSigningKeys(
 	for userID := range req.UserToDevices {
 		keys, err := a.DB.CrossSigningKeysForUser(ctx, userID)
 		if err != nil {
+			logrus.WithError(err).Errorf("Failed to get cross-signing keys for user %q", userID)
 			return fmt.Errorf("a.DB.CrossSigningKeysForUser (%q): %w", userID, err)
 		}
 
@@ -443,6 +444,8 @@ func (a *KeyInternalAPI) crossSigningKeys(
 						keyID: keyData,
 					},
 				}
+
+				logrus.WithField("key", key).Info("Cross-signing key")
 
 				// TODO: populate signatures
 
