@@ -39,6 +39,8 @@ type EDUServerInputAPI struct {
 	OutputSendToDeviceEventTopic string
 	// The kafka topic to output new receipt events to
 	OutputReceiptEventTopic string
+	// The kafka topic to output new signing key updates to
+	OutputSigningKeyUpdateTopic string
 	// kafka producer
 	Producer sarama.SyncProducer
 	// Internal user query API
@@ -198,6 +200,31 @@ func (t *EDUServerInputAPI) InputReceiptEvent(
 	m := &sarama.ProducerMessage{
 		Topic: t.OutputReceiptEventTopic,
 		Key:   sarama.StringEncoder(request.InputReceiptEvent.RoomID + ":" + request.InputReceiptEvent.UserID),
+		Value: sarama.ByteEncoder(js),
+	}
+	_, _, err = t.Producer.SendMessage(m)
+	return err
+}
+
+// InputSigningKeyUpdate implements api.EDUServerInputAPI
+func (t *EDUServerInputAPI) InputSigningKeyUpdate(
+	ctx context.Context,
+	request *api.InputSigningKeyUpdateRequest,
+	response *api.InputSigningKeyUpdateResponse,
+) error {
+	logrus.WithFields(logrus.Fields{}).Infof("Producing to topic '%s'", t.OutputSigningKeyUpdateTopic)
+	output := &api.OutputSigningKeyUpdate{
+		SigningKeyUpdate: request.SigningKeyUpdate,
+		Type:             "m.signing_key_update",
+		Timestamp:        gomatrixserverlib.AsTimestamp(time.Now()),
+	}
+	js, err := json.Marshal(output)
+	if err != nil {
+		return err
+	}
+	m := &sarama.ProducerMessage{
+		Topic: t.OutputSigningKeyUpdateTopic,
+		Key:   sarama.StringEncoder(request.UserID),
 		Value: sarama.ByteEncoder(js),
 	}
 	_, _, err = t.Producer.SendMessage(m)

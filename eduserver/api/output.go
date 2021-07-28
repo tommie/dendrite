@@ -85,3 +85,9 @@ type FederationReceiptData struct {
 	Data     ReceiptTS `json:"data"`
 	EventIDs []string  `json:"event_ids"`
 }
+
+type OutputSigningKeyUpdate struct {
+	SigningKeyUpdate
+	Type      string                      `json:"type"`
+	Timestamp gomatrixserverlib.Timestamp `json:"timestamp"`
+}

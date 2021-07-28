@@ -86,3 +86,20 @@ func SendReceipt(
 	response := InputReceiptEventResponse{}
 	return eduAPI.InputReceiptEvent(ctx, &request, &response)
 }
+
+func SendSigningKeyUpdate(
+	ctx context.Context,
+	eduAPI EDUServerInputAPI,
+	userID string,
+	masterKey, selfSigningKey gomatrixserverlib.CrossSigningKey,
+) error {
+	request := InputSigningKeyUpdateRequest{
+		SigningKeyUpdate: SigningKeyUpdate{
+			MasterKey:      masterKey,
+			SelfSigningKey: selfSigningKey,
+			UserID:         userID,
+		},
+	}
+	response := InputSigningKeyUpdateResponse{}
+	return eduAPI.InputSigningKeyUpdate(ctx, &request, &response)
+}

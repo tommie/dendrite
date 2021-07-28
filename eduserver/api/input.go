@@ -75,6 +75,18 @@ type InputReceiptEventRequest struct {
 // InputReceiptEventResponse is a response to InputReceiptEventRequest
 type InputReceiptEventResponse struct{}
 
+type SigningKeyUpdate struct {
+	MasterKey      gomatrixserverlib.CrossSigningKey `json:"master_key"`
+	SelfSigningKey gomatrixserverlib.CrossSigningKey `json:"cross_signing_key"`
+	UserID         string                            `json:"user_id"`
+}
+
+type InputSigningKeyUpdateRequest struct {
+	SigningKeyUpdate
+}
+
+type InputSigningKeyUpdateResponse struct{}
+
 // EDUServerInputAPI is used to write events to the typing server.
 type EDUServerInputAPI interface {
 	InputTypingEvent(
@@ -93,5 +105,11 @@ type EDUServerInputAPI interface {
 		ctx context.Context,
 		request *InputReceiptEventRequest,
 		response *InputReceiptEventResponse,
+	) error
+
+	InputSigningKeyUpdate(
+		ctx context.Context,
+		request *InputSigningKeyUpdateRequest,
+		response *InputSigningKeyUpdateResponse,
 	) error
 }
