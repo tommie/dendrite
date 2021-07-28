@@ -427,46 +427,6 @@ func (a *KeyInternalAPI) queryRemoteKeysOnServer(
 
 }
 
-func (a *KeyInternalAPI) crossSigningKeys(
-	ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse,
-) error {
-	for userID := range req.UserToDevices {
-		keys, err := a.DB.CrossSigningKeysForUser(ctx, userID)
-		if err != nil {
-			logrus.WithError(err).Errorf("Failed to get cross-signing keys for user %q", userID)
-			return fmt.Errorf("a.DB.CrossSigningKeysForUser (%q): %w", userID, err)
-		}
-
-		for keyType, keyData := range keys {
-			b64 := keyData.Encode()
-			key := gomatrixserverlib.CrossSigningKey{
-				UserID: userID,
-				Usage: []gomatrixserverlib.CrossSigningKeyPurpose{
-					keyType,
-				},
-				Keys: map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes{
-					gomatrixserverlib.KeyID("ed25519:" + b64): keyData,
-				},
-			}
-
-			// TODO: populate signatures
-
-			switch keyType {
-			case gomatrixserverlib.CrossSigningKeyPurposeMaster:
-				res.MasterKeys[userID] = key
-
-			case gomatrixserverlib.CrossSigningKeyPurposeSelfSigning:
-				res.SelfSigningKeys[userID] = key
-
-			case gomatrixserverlib.CrossSigningKeyPurposeUserSigning:
-				res.UserSigningKeys[userID] = key
-			}
-		}
-	}
-
-	return nil
-}
-
 func (a *KeyInternalAPI) populateResponseWithDeviceKeysFromDatabase(
 	ctx context.Context, res *api.QueryKeysResponse, userID string, deviceIDs []string,
 ) error {
@@ -616,18 +576,6 @@ func (a *KeyInternalAPI) uploadOneTimeKeys(ctx context.Context, req *api.Perform
 		res.OneTimeKeyCounts = append(res.OneTimeKeyCounts, *counts)
 	}
 
-}
-
-func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.PerformUploadDeviceKeysRequest, res *api.PerformUploadDeviceKeysResponse) {
-	res.Error = &api.KeyError{
-		Err: "Not supported yet",
-	}
-}
-
-func (a *KeyInternalAPI) PerformUploadDeviceSignatures(ctx context.Context, req *api.PerformUploadDeviceSignaturesRequest, res *api.PerformUploadDeviceSignaturesResponse) {
-	res.Error = &api.KeyError{
-		Err: "Not supported yet",
-	}
 }
 
 func emitDeviceKeyChanges(producer KeyChangeProducer, existing, new []api.DeviceMessage) error {
