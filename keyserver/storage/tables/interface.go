@@ -52,3 +52,9 @@ type StaleDeviceLists interface {
 	InsertStaleDeviceList(ctx context.Context, userID string, isStale bool) error
 	SelectUserIDsWithStaleDeviceLists(ctx context.Context, domains []gomatrixserverlib.ServerName) ([]string, error)
 }
+
+type CrossSigningKeys interface{}
+
+type CrossSigningSigs interface{}
+
+type CrossSigningStreams interface{}

@@ -26,12 +26,15 @@ import (
 )
 
 type Database struct {
-	DB                    *sql.DB
-	Writer                sqlutil.Writer
-	OneTimeKeysTable      tables.OneTimeKeys
-	DeviceKeysTable       tables.DeviceKeys
-	KeyChangesTable       tables.KeyChanges
-	StaleDeviceListsTable tables.StaleDeviceLists
+	DB                       *sql.DB
+	Writer                   sqlutil.Writer
+	OneTimeKeysTable         tables.OneTimeKeys
+	DeviceKeysTable          tables.DeviceKeys
+	KeyChangesTable          tables.KeyChanges
+	StaleDeviceListsTable    tables.StaleDeviceLists
+	CrossSigningKeysTable    tables.CrossSigningKeys
+	CrossSigningSigsTable    tables.CrossSigningSigs
+	CrossSigningStreamsTable tables.CrossSigningStreams
 }
 
 func (d *Database) ExistingOneTimeKeys(ctx context.Context, userID, deviceID string, keyIDsWithAlgorithms []string) (map[string]json.RawMessage, error) {

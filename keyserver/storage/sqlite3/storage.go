@@ -41,12 +41,27 @@ func NewDatabase(dbProperties *config.DatabaseOptions) (*shared.Database, error)
 	if err != nil {
 		return nil, err
 	}
+	csk, err := NewSqliteCrossSigningKeysTable(db)
+	if err != nil {
+		return nil, err
+	}
+	css, err := NewSqliteCrossSigningSigsTable(db)
+	if err != nil {
+		return nil, err
+	}
+	cst, err := NewSqliteCrossSigningStreamsTable(db)
+	if err != nil {
+		return nil, err
+	}
 	return &shared.Database{
-		DB:                    db,
-		Writer:                sqlutil.NewExclusiveWriter(),
-		OneTimeKeysTable:      otk,
-		DeviceKeysTable:       dk,
-		KeyChangesTable:       kc,
-		StaleDeviceListsTable: sdl,
+		DB:                       db,
+		Writer:                   sqlutil.NewExclusiveWriter(),
+		OneTimeKeysTable:         otk,
+		DeviceKeysTable:          dk,
+		KeyChangesTable:          kc,
+		StaleDeviceListsTable:    sdl,
+		CrossSigningKeysTable:    csk,
+		CrossSigningSigsTable:    css,
+		CrossSigningStreamsTable: cst,
 	}, nil
 }
