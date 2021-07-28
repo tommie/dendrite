@@ -1,0 +1,89 @@
+// Copyright 2021 The Matrix.org Foundation C.I.C.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package routing
+
+import (
+	"net/http"
+
+	"github.com/matrix-org/dendrite/clientapi/httputil"
+	"github.com/matrix-org/dendrite/clientapi/jsonerror"
+	"github.com/matrix-org/dendrite/keyserver/api"
+	userapi "github.com/matrix-org/dendrite/userapi/api"
+	"github.com/matrix-org/util"
+)
+
+func UploadCrossSigningDeviceKeys(req *http.Request, keyserverAPI api.KeyInternalAPI, device *userapi.Device) util.JSONResponse {
+	uploadReq := &api.PerformUploadDeviceKeysRequest{}
+	uploadRes := &api.PerformUploadDeviceKeysResponse{}
+
+	if err := httputil.UnmarshalJSONRequest(req, &uploadReq.CrossSigningKeys); err != nil {
+		return *err
+	}
+
+	keyserverAPI.PerformUploadDeviceKeys(req.Context(), uploadReq, uploadRes)
+	if err := uploadRes.Error; err != nil {
+		switch {
+		case err.IsInvalidSignature:
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidSignature(err.Error()),
+			}
+		case err.IsMissingParam:
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.MissingParam(err.Error()),
+			}
+		default:
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.Unknown(err.Error()),
+			}
+		}
+	}
+
+	return util.JSONResponse{}
+}
+
+func UploadCrossSigningDeviceSignatures(req *http.Request, keyserverAPI api.KeyInternalAPI, device *userapi.Device) util.JSONResponse {
+	uploadReq := &api.PerformUploadDeviceSignaturesRequest{}
+	uploadRes := &api.PerformUploadDeviceSignaturesResponse{}
+
+	if err := httputil.UnmarshalJSONRequest(req, &uploadReq.CrossSigningSignatures); err != nil {
+		return *err
+	}
+
+	keyserverAPI.PerformUploadDeviceSignatures(req.Context(), uploadReq, uploadRes)
+	if err := uploadRes.Error; err != nil {
+		switch {
+		case err.IsInvalidSignature:
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidSignature(err.Error()),
+			}
+		case err.IsMissingParam:
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.MissingParam(err.Error()),
+			}
+		default:
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.Unknown(err.Error()),
+			}
+		}
+	}
+
+	return util.JSONResponse{}
+}

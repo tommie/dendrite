@@ -568,6 +568,18 @@ func (a *KeyInternalAPI) uploadOneTimeKeys(ctx context.Context, req *api.Perform
 
 }
 
+func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.PerformUploadDeviceKeysRequest, res *api.PerformUploadDeviceKeysResponse) {
+	res.Error = &api.KeyError{
+		Err: "Not supported yet",
+	}
+}
+
+func (a *KeyInternalAPI) PerformUploadDeviceSignatures(ctx context.Context, req *api.PerformUploadDeviceSignaturesRequest, res *api.PerformUploadDeviceSignaturesResponse) {
+	res.Error = &api.KeyError{
+		Err: "Not supported yet",
+	}
+}
+
 func emitDeviceKeyChanges(producer KeyChangeProducer, existing, new []api.DeviceMessage) error {
 	// find keys in new that are not in existing
 	var keysAdded []api.DeviceMessage
