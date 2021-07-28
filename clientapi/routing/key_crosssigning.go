@@ -17,24 +17,65 @@ package routing
 import (
 	"net/http"
 
+	"github.com/matrix-org/dendrite/clientapi/auth"
+	"github.com/matrix-org/dendrite/clientapi/auth/authtypes"
 	"github.com/matrix-org/dendrite/clientapi/httputil"
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/keyserver/api"
+	"github.com/matrix-org/dendrite/setup/config"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
+	"github.com/matrix-org/dendrite/userapi/storage/accounts"
 	"github.com/matrix-org/util"
 )
 
-func UploadCrossSigningDeviceKeys(req *http.Request, keyserverAPI api.KeyInternalAPI, device *userapi.Device) util.JSONResponse {
-	// TODO: User-interactive auth
+type crossSigningRequest struct {
+	api.PerformUploadDeviceKeysRequest
+	Auth newPasswordAuth `json:"auth"`
+}
 
-	uploadReq := &api.PerformUploadDeviceKeysRequest{}
+func UploadCrossSigningDeviceKeys(
+	req *http.Request, keyserverAPI api.KeyInternalAPI, device *userapi.Device,
+	accountDB accounts.Database, cfg *config.ClientAPI,
+) util.JSONResponse {
+	uploadReq := &crossSigningRequest{}
 	uploadRes := &api.PerformUploadDeviceKeysResponse{}
+
+	resErr := httputil.UnmarshalJSONRequest(req, &uploadReq)
+	if resErr != nil {
+		return *resErr
+	}
+	sessionID := uploadReq.Auth.Session
+	if sessionID == "" {
+		sessionID = util.RandomString(sessionIDLength)
+	}
+	if uploadReq.Auth.Type != authtypes.LoginTypePassword {
+		return util.JSONResponse{
+			Code: http.StatusUnauthorized,
+			JSON: newUserInteractiveResponse(
+				sessionID,
+				[]authtypes.Flow{
+					{
+						Stages: []authtypes.LoginType{authtypes.LoginTypePassword},
+					},
+				},
+				nil,
+			),
+		}
+	}
+	typePassword := auth.LoginTypePassword{
+		GetAccountByPassword: accountDB.GetAccountByPassword,
+		Config:               cfg,
+	}
+	if _, authErr := typePassword.Login(req.Context(), &uploadReq.Auth.PasswordRequest); authErr != nil {
+		return *authErr
+	}
+	AddCompletedSessionStage(sessionID, authtypes.LoginTypePassword)
 
 	if err := httputil.UnmarshalJSONRequest(req, &uploadReq.CrossSigningKeys); err != nil {
 		return *err
 	}
 
-	keyserverAPI.PerformUploadDeviceKeys(req.Context(), uploadReq, uploadRes)
+	keyserverAPI.PerformUploadDeviceKeys(req.Context(), &uploadReq.PerformUploadDeviceKeysRequest, uploadRes)
 	if err := uploadRes.Error; err != nil {
 		switch {
 		case err.IsInvalidSignature:
