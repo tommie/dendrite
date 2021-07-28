@@ -220,17 +220,18 @@ func (a *KeyInternalAPI) QueryDeviceMessages(ctx context.Context, req *api.Query
 }
 
 func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse) {
+	res.DeviceKeys = make(map[string]map[string]json.RawMessage)
+	res.MasterKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
+	res.SelfSigningKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
+	res.UserSigningKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
+	res.Failures = make(map[string]interface{})
+
 	// get cross-signing keys from the database
 	if err := a.crossSigningKeys(ctx, req, res); err != nil {
 		// TODO: handle this
 		util.GetLogger(ctx).WithError(err).Error("Failed to retrieve cross-signing keys")
 	}
 
-	res.DeviceKeys = make(map[string]map[string]json.RawMessage)
-	res.MasterKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
-	res.SelfSigningKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
-	res.UserSigningKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
-	res.Failures = make(map[string]interface{})
 	// make a map from domain to device keys
 	domainToDeviceKeys := make(map[string]map[string][]string)
 	for userID, deviceIDs := range req.UserToDevices {
