@@ -437,32 +437,29 @@ func (a *KeyInternalAPI) crossSigningKeys(
 			return fmt.Errorf("a.DB.CrossSigningKeysForUser (%q): %w", userID, err)
 		}
 
-		for keyType, keysByType := range keys {
-			for keyID, keyData := range keysByType {
-				key := gomatrixserverlib.CrossSigningKey{
-					UserID: userID,
-					Usage: []gomatrixserverlib.CrossSigningKeyPurpose{
-						keyType,
-					},
-					Keys: map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes{
-						keyID: keyData,
-					},
-				}
+		for keyType, keyData := range keys {
+			b64 := keyData.Encode()
+			key := gomatrixserverlib.CrossSigningKey{
+				UserID: userID,
+				Usage: []gomatrixserverlib.CrossSigningKeyPurpose{
+					keyType,
+				},
+				Keys: map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes{
+					gomatrixserverlib.KeyID("ed25519:" + b64): keyData,
+				},
+			}
 
-				logrus.WithField("key", key).Info("Cross-signing key")
+			// TODO: populate signatures
 
-				// TODO: populate signatures
+			switch keyType {
+			case gomatrixserverlib.CrossSigningKeyPurposeMaster:
+				res.MasterKeys[userID] = key
 
-				switch keyType {
-				case gomatrixserverlib.CrossSigningKeyPurposeMaster:
-					res.MasterKeys[userID] = key
+			case gomatrixserverlib.CrossSigningKeyPurposeSelfSigning:
+				res.SelfSigningKeys[userID] = key
 
-				case gomatrixserverlib.CrossSigningKeyPurposeSelfSigning:
-					res.SelfSigningKeys[userID] = key
-
-				case gomatrixserverlib.CrossSigningKeyPurposeUserSigning:
-					res.UserSigningKeys[userID] = key
-				}
+			case gomatrixserverlib.CrossSigningKeyPurposeUserSigning:
+				res.UserSigningKeys[userID] = key
 			}
 		}
 	}

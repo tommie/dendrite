@@ -40,7 +40,7 @@ type KeyInternalAPI interface {
 	QueryDeviceMessages(ctx context.Context, req *QueryDeviceMessagesRequest, res *QueryDeviceMessagesResponse)
 }
 
-type CrossSigningKeyMap map[gomatrixserverlib.CrossSigningKeyPurpose]map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes
+type CrossSigningKeyMap map[gomatrixserverlib.CrossSigningKeyPurpose]gomatrixserverlib.Base64Bytes
 
 // KeyError is returned if there was a problem performing/querying the server
 type KeyError struct {

@@ -28,7 +28,6 @@ var crossSigningKeysSchema = `
 CREATE TABLE IF NOT EXISTS keyserver_cross_signing_keys (
     user_id TEXT NOT NULL,
 	key_type TEXT NOT NULL,
-	key_id TEXT NOT NULL,
 	key_data TEXT NOT NULL,
 	stream_id BIGINT NOT NULL 
 );
@@ -37,7 +36,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS keyserver_cross_signing_keys_idx ON keyserver_
 `
 
 const selectCrossSigningKeysForUserSQL = "" +
-	"SELECT DISTINCT ON (user_id, key_type) key_type, key_id, key_data FROM keyserver_cross_signing_keys" +
+	"SELECT DISTINCT ON (user_id, key_type) key_type, key_data FROM keyserver_cross_signing_keys" +
 	" WHERE user_id = $1" +
 	" ORDER BY user_id, key_type, stream_id DESC"
 
@@ -71,15 +70,11 @@ func (s *crossSigningKeysStatements) SelectCrossSigningKeysForUser(
 	r = api.CrossSigningKeyMap{}
 	for rows.Next() {
 		var keyType gomatrixserverlib.CrossSigningKeyPurpose
-		var keyID gomatrixserverlib.KeyID
 		var keyData gomatrixserverlib.Base64Bytes
-		if err := rows.Scan(&keyType, &keyID, &keyData); err != nil {
+		if err := rows.Scan(&keyType, &keyData); err != nil {
 			return nil, err
 		}
-		if _, ok := r[keyType]; !ok {
-			r[keyType] = map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes{}
-		}
-		r[keyType][keyID] = keyData
+		r[keyType] = keyData
 	}
 	return
 }
