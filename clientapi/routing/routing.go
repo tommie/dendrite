@@ -64,7 +64,9 @@ func Setup(
 	rateLimits := newRateLimits(&cfg.RateLimiting)
 	userInteractiveAuth := auth.NewUserInteractive(accountDB.GetAccountByPassword, cfg)
 
-	unstableFeatures := make(map[string]bool)
+	unstableFeatures := map[string]bool{
+		"org.matrix.e2e_cross_signing": true,
+	}
 	for _, msc := range cfg.MSCs.MSCs {
 		unstableFeatures["org.matrix."+msc] = true
 	}

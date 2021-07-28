@@ -25,6 +25,8 @@ import (
 )
 
 func UploadCrossSigningDeviceKeys(req *http.Request, keyserverAPI api.KeyInternalAPI, device *userapi.Device) util.JSONResponse {
+	// TODO: User-interactive auth
+
 	uploadReq := &api.PerformUploadDeviceKeysRequest{}
 	uploadRes := &api.PerformUploadDeviceKeysResponse{}
 
