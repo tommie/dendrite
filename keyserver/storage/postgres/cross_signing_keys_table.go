@@ -15,15 +15,20 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 
+	"github.com/matrix-org/dendrite/internal"
+	"github.com/matrix-org/dendrite/keyserver/api"
 	"github.com/matrix-org/dendrite/keyserver/storage/tables"
+	"github.com/matrix-org/gomatrixserverlib"
 )
 
 var crossSigningKeysSchema = `
 CREATE TABLE IF NOT EXISTS keyserver_cross_signing_keys (
     user_id TEXT NOT NULL,
 	key_type TEXT NOT NULL,
+	key_id TEXT NOT NULL,
 	key_data TEXT NOT NULL,
 	stream_id BIGINT NOT NULL 
 );
@@ -31,8 +36,14 @@ CREATE TABLE IF NOT EXISTS keyserver_cross_signing_keys (
 CREATE UNIQUE INDEX IF NOT EXISTS keyserver_cross_signing_keys_idx ON keyserver_cross_signing_keys(user_id, key_type, stream_id);
 `
 
+const selectCrossSigningKeysForUserSQL = "" +
+	"SELECT DISTINCT ON (user_id, key_type) key_type, key_id, key_data FROM keyserver_cross_signing_keys" +
+	" WHERE user_id = $1" +
+	" ORDER BY user_id, key_type, stream_id DESC"
+
 type crossSigningKeysStatements struct {
-	db *sql.DB
+	db                                *sql.DB
+	selectCrossSigningKeysForUserStmt *sql.Stmt
 }
 
 func NewPostgresCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, error) {
@@ -43,5 +54,28 @@ func NewPostgresCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, erro
 	if err != nil {
 		return nil, err
 	}
+	if s.selectCrossSigningKeysForUserStmt, err = db.Prepare(selectCrossSigningKeysForUserSQL); err != nil {
+		return nil, err
+	}
 	return s, nil
+}
+
+func (s *crossSigningKeysStatements) SelectCrossSigningKeysForUser(
+	ctx context.Context, userID string,
+) (r api.CrossSigningKeyMap, err error) {
+	rows, err := s.selectCrossSigningKeysForUserStmt.QueryContext(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer internal.CloseAndLogIfError(ctx, rows, "selectCrossSigningKeysForUserStmt: rows.close() failed")
+	for rows.Next() {
+		var keyType gomatrixserverlib.CrossSigningKeyPurpose
+		var keyID gomatrixserverlib.KeyID
+		var keyData gomatrixserverlib.Base64Bytes
+		if err := rows.Scan(&keyType, &keyID, &keyData); err != nil {
+			return nil, err
+		}
+		r[keyType][keyID] = keyData
+	}
+	return
 }

@@ -76,4 +76,6 @@ type Database interface {
 
 	// MarkDeviceListStale sets the stale bit for this user to isStale.
 	MarkDeviceListStale(ctx context.Context, userID string, isStale bool) error
+
+	CrossSigningKeysForUser(ctx context.Context, userID string) (api.CrossSigningKeyMap, error)
 }

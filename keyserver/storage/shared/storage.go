@@ -156,3 +156,8 @@ func (d *Database) MarkDeviceListStale(ctx context.Context, userID string, isSta
 		return d.StaleDeviceListsTable.InsertStaleDeviceList(ctx, userID, isStale)
 	})
 }
+
+// CrossSigningKeysForUser returns the latest known cross-signing keys for a user, if any.
+func (d *Database) CrossSigningKeysForUser(ctx context.Context, userID string) (api.CrossSigningKeyMap, error) {
+	return d.CrossSigningKeysTable.SelectCrossSigningKeysForUser(ctx, userID)
+}

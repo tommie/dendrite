@@ -53,7 +53,9 @@ type StaleDeviceLists interface {
 	SelectUserIDsWithStaleDeviceLists(ctx context.Context, domains []gomatrixserverlib.ServerName) ([]string, error)
 }
 
-type CrossSigningKeys interface{}
+type CrossSigningKeys interface {
+	SelectCrossSigningKeysForUser(ctx context.Context, userID string) (r api.CrossSigningKeyMap, err error)
+}
 
 type CrossSigningSigs interface{}
 

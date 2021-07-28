@@ -40,6 +40,8 @@ type KeyInternalAPI interface {
 	QueryDeviceMessages(ctx context.Context, req *QueryDeviceMessagesRequest, res *QueryDeviceMessagesResponse)
 }
 
+type CrossSigningKeyMap map[gomatrixserverlib.CrossSigningKeyPurpose]map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes
+
 // KeyError is returned if there was a problem performing/querying the server
 type KeyError struct {
 	Err                string `json:"error"`
@@ -182,6 +184,10 @@ type QueryKeysResponse struct {
 	Failures map[string]interface{}
 	// Map of user_id to device_id to device_key
 	DeviceKeys map[string]map[string]json.RawMessage
+	// Maps of user_id to cross signing key
+	MasterKeys      map[string]gomatrixserverlib.CrossSigningKey
+	SelfSigningKeys map[string]gomatrixserverlib.CrossSigningKey
+	UserSigningKeys map[string]gomatrixserverlib.CrossSigningKey
 	// Set if there was a fatal error processing this query
 	Error *KeyError
 }

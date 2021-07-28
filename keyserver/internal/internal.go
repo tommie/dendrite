@@ -282,6 +282,12 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 		return // nothing to query
 	}
 
+	// get cross-signing keys from the database
+	if err := a.crossSigningKeys(ctx, req, res); err != nil {
+		// TODO: handle this
+		util.GetLogger(ctx).WithError(err).Error("Failed to retrieve cross-signing keys")
+	}
+
 	// perform key queries for remote devices
 	a.queryRemoteKeys(ctx, req.Timeout, res, domainToDeviceKeys)
 }
@@ -415,6 +421,46 @@ func (a *KeyInternalAPI) queryRemoteKeysOnServer(
 	}
 	respMu.Unlock()
 
+}
+
+func (a *KeyInternalAPI) crossSigningKeys(
+	ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse,
+) error {
+	for userID := range req.UserToDevices {
+		keys, err := a.DB.CrossSigningKeysForUser(ctx, userID)
+		if err != nil {
+			return fmt.Errorf("a.DB.CrossSigningKeysForUser (%q): %w", userID, err)
+		}
+
+		for keyType, keysByType := range keys {
+			for keyID, keyData := range keysByType {
+				key := gomatrixserverlib.CrossSigningKey{
+					UserID: userID,
+					Usage: []gomatrixserverlib.CrossSigningKeyPurpose{
+						keyType,
+					},
+					Keys: map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes{
+						keyID: keyData,
+					},
+				}
+
+				// TODO: populate signatures
+
+				switch keyType {
+				case gomatrixserverlib.CrossSigningKeyPurposeMaster:
+					res.MasterKeys[userID] = key
+
+				case gomatrixserverlib.CrossSigningKeyPurposeSelfSigning:
+					res.SelfSigningKeys[userID] = key
+
+				case gomatrixserverlib.CrossSigningKeyPurposeUserSigning:
+					res.UserSigningKeys[userID] = key
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (a *KeyInternalAPI) populateResponseWithDeviceKeysFromDatabase(
