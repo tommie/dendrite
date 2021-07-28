@@ -220,6 +220,12 @@ func (a *KeyInternalAPI) QueryDeviceMessages(ctx context.Context, req *api.Query
 }
 
 func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse) {
+	// get cross-signing keys from the database
+	if err := a.crossSigningKeys(ctx, req, res); err != nil {
+		// TODO: handle this
+		util.GetLogger(ctx).WithError(err).Error("Failed to retrieve cross-signing keys")
+	}
+
 	res.DeviceKeys = make(map[string]map[string]json.RawMessage)
 	res.Failures = make(map[string]interface{})
 	// make a map from domain to device keys
@@ -280,12 +286,6 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 	domainToDeviceKeys = a.remoteKeysFromDatabase(ctx, res, domainToDeviceKeys)
 	if len(domainToDeviceKeys) == 0 {
 		return // nothing to query
-	}
-
-	// get cross-signing keys from the database
-	if err := a.crossSigningKeys(ctx, req, res); err != nil {
-		// TODO: handle this
-		util.GetLogger(ctx).WithError(err).Error("Failed to retrieve cross-signing keys")
 	}
 
 	// perform key queries for remote devices
