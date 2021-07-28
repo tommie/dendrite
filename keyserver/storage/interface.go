@@ -18,11 +18,14 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/keyserver/api"
 	"github.com/matrix-org/gomatrixserverlib"
 )
 
 type Database interface {
+	internal.PartitionStorer
+
 	// ExistingOneTimeKeys returns a map of keyIDWithAlgorithm to key JSON for the given parameters. If no keys exist with this combination
 	// of user/device/key/algorithm 4-uple then it is omitted from the map. Returns an error when failing to communicate with the database.
 	ExistingOneTimeKeys(ctx context.Context, userID, deviceID string, keyIDsWithAlgorithms []string) (map[string]json.RawMessage, error)

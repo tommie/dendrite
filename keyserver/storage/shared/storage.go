@@ -35,6 +35,7 @@ type Database struct {
 	CrossSigningKeysTable    tables.CrossSigningKeys
 	CrossSigningSigsTable    tables.CrossSigningSigs
 	CrossSigningStreamsTable tables.CrossSigningStreams
+	sqlutil.PartitionOffsetStatements
 }
 
 func (d *Database) ExistingOneTimeKeys(ctx context.Context, userID, deviceID string, keyIDsWithAlgorithms []string) (map[string]json.RawMessage, error) {

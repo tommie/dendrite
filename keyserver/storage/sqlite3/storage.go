@@ -53,7 +53,7 @@ func NewDatabase(dbProperties *config.DatabaseOptions) (*shared.Database, error)
 	if err != nil {
 		return nil, err
 	}
-	return &shared.Database{
+	d := &shared.Database{
 		DB:                       db,
 		Writer:                   sqlutil.NewExclusiveWriter(),
 		OneTimeKeysTable:         otk,
@@ -63,5 +63,9 @@ func NewDatabase(dbProperties *config.DatabaseOptions) (*shared.Database, error)
 		CrossSigningKeysTable:    csk,
 		CrossSigningSigsTable:    css,
 		CrossSigningStreamsTable: cst,
-	}, nil
+	}
+	if err = d.PartitionOffsetStatements.Prepare(db, d.Writer, "keyserver"); err != nil {
+		return nil, err
+	}
+	return d, nil
 }
