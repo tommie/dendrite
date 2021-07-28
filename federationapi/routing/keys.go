@@ -72,8 +72,8 @@ func QueryDeviceKeys(
 		Code: 200,
 		JSON: struct {
 			DeviceKeys      interface{} `json:"device_keys"`
-			MasterKeys      interface{} `json:"master_keys"`
-			SelfSigningKeys interface{} `json:"self_signing_keys"`
+			MasterKeys      interface{} `json:"master_keys,omitempty"`
+			SelfSigningKeys interface{} `json:"self_signing_keys,omitempty"`
 		}{
 			queryRes.DeviceKeys,
 			queryRes.MasterKeys,

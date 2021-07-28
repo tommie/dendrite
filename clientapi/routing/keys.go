@@ -112,15 +112,22 @@ func QueryKeys(req *http.Request, keyAPI api.KeyInternalAPI) util.JSONResponse {
 		Timeout:       r.GetTimeout(),
 		// TODO: Token?
 	}, &queryRes)
+	res := map[string]interface{}{
+		"device_keys": queryRes.DeviceKeys,
+		"failures":    queryRes.Failures,
+	}
+	if k := queryRes.MasterKeys; k != nil {
+		res["master_keys"] = k
+	}
+	if k := queryRes.SelfSigningKeys; k != nil {
+		res["self_signing_keys"] = k
+	}
+	if k := queryRes.UserSigningKeys; k != nil {
+		res["user_signing_keys"] = k
+	}
 	return util.JSONResponse{
 		Code: 200,
-		JSON: map[string]interface{}{
-			"device_keys":       queryRes.DeviceKeys,
-			"master_keys":       queryRes.MasterKeys,
-			"self_signing_keys": queryRes.SelfSigningKeys,
-			"user_signing_keys": queryRes.UserSigningKeys,
-			"failures":          queryRes.Failures,
-		},
+		JSON: res,
 	}
 }
 
