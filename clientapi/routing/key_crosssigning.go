@@ -71,10 +71,6 @@ func UploadCrossSigningDeviceKeys(
 	}
 	AddCompletedSessionStage(sessionID, authtypes.LoginTypePassword)
 
-	if err := httputil.UnmarshalJSONRequest(req, &uploadReq.CrossSigningKeys); err != nil {
-		return *err
-	}
-
 	keyserverAPI.PerformUploadDeviceKeys(req.Context(), &uploadReq.PerformUploadDeviceKeysRequest, uploadRes)
 	if err := uploadRes.Error; err != nil {
 		switch {
