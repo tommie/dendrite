@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS keyserver_cross_signing_keys (
 	stream_id BIGINT NOT NULL 
 );
 
-CREATE UNIQUE INDEX keyserver_cross_signing_keys_idx ON keyserver_cross_signing_keys(user_id, key_type, stream_id);
+CREATE UNIQUE INDEX IF NOT EXISTS keyserver_cross_signing_keys_idx ON keyserver_cross_signing_keys(user_id, key_type, stream_id);
 `
 
 type crossSigningKeysStatements struct {

@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS keyserver_cross_signing_sigs (
 	signature TEXT NOT NULL 
 );
 
-CREATE UNIQUE INDEX keyserver_cross_signing_sigs_idx ON keyserver_cross_signing_sigs(user_id, target_user_id, target_device_id);
+CREATE UNIQUE INDEX IF NOT EXISTS keyserver_cross_signing_sigs_idx ON keyserver_cross_signing_sigs(user_id, target_user_id, target_device_id);
 `
 
 type crossSigningSigsStatements struct {
