@@ -72,7 +72,7 @@ func (s *crossSigningKeysStatements) SelectCrossSigningKeysForUser(
 		var keyType gomatrixserverlib.CrossSigningKeyPurpose
 		var keyID gomatrixserverlib.KeyID
 		var keyData gomatrixserverlib.Base64Bytes
-		if err := rows.Scan(&keyType, &keyID, keyData); err != nil {
+		if err := rows.Scan(&keyType, &keyID, &keyData); err != nil {
 			return nil, err
 		}
 		r[keyType][keyID] = keyData
