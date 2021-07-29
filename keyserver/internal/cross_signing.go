@@ -160,60 +160,82 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 }
 
 func (a *KeyInternalAPI) PerformUploadDeviceSignatures(ctx context.Context, req *api.PerformUploadDeviceSignaturesRequest, res *api.PerformUploadDeviceSignaturesResponse) {
-	/*
-		for targetUserID, forTarget := range req.Signatures {
-			for targetID, signable := range forTarget {
-				// Work out which type of thingy it is.
+	selfSignatures := map[string]map[gomatrixserverlib.KeyID]gomatrixserverlib.CrossSigningForKeyOrDevice{}
+	otherSignatures := map[string]map[gomatrixserverlib.KeyID]gomatrixserverlib.CrossSigningForKeyOrDevice{}
 
-
-				switch obj := signable.(type) {
-				case *gomatrixserverlib.CrossSigningForKey: // signing a key
-					// Check to see if we know about the target user ID and key ID. If we
-					// don't then we'll just drop the signatures.
-					keys, err := a.DB.CrossSigningKeysForUser(ctx, targetUserID)
-					if err != nil {
-						continue
+	for userID, forUserID := range req.Signatures {
+		for keyID, keyOrDevice := range forUserID {
+			switch key := keyOrDevice.CrossSigningBody.(type) {
+			case *gomatrixserverlib.CrossSigningForKey:
+				if key.UserID == req.UserID {
+					if _, ok := selfSignatures[userID]; !ok {
+						selfSignatures[userID] = map[gomatrixserverlib.KeyID]gomatrixserverlib.CrossSigningForKeyOrDevice{}
 					}
-					foundMatchingKey := false
-					for _, key := range keys {
-						if key.Encode() == targetID {
-							foundMatchingKey = true
-						}
+					selfSignatures[userID][keyID] = keyOrDevice
+				} else {
+					if _, ok := selfSignatures[userID]; !ok {
+						otherSignatures[userID] = map[gomatrixserverlib.KeyID]gomatrixserverlib.CrossSigningForKeyOrDevice{}
 					}
-					if !foundMatchingKey {
-						continue
-					}
-
-					for originUserID, forOriginUserID := range obj.Signatures {
-						for originKeyID, signature := range forOriginUserID {
-							// TODO: check signatures
-
-							err := a.DB.StoreCrossSigningSigsForTarget(ctx, originUserID, originKeyID, targetUserID, gomatrixserverlib.KeyID(targetID), signature)
-							if err != nil {
-								res.Error = &api.KeyError{
-									Err: "Failed to store cross-signing keys for target: " + err.Error(),
-								}
-								return
-							}
-						}
-					}
-
-				case *gomatrixserverlib.CrossSigningForDevice: // signing a device
-					// TODO: signatures for devices
-					continue
-
-				default:
-					res.Error = &api.KeyError{
-						Err: "Found an unexpected item type",
-					}
-					return
+					otherSignatures[userID][keyID] = keyOrDevice
 				}
+
+			case *gomatrixserverlib.CrossSigningForDevice:
+				if key.UserID == req.UserID {
+					if _, ok := selfSignatures[userID]; !ok {
+						selfSignatures[userID] = map[gomatrixserverlib.KeyID]gomatrixserverlib.CrossSigningForKeyOrDevice{}
+					}
+					selfSignatures[userID][keyID] = keyOrDevice
+				} else {
+					if _, ok := selfSignatures[userID]; !ok {
+						otherSignatures[userID] = map[gomatrixserverlib.KeyID]gomatrixserverlib.CrossSigningForKeyOrDevice{}
+					}
+					otherSignatures[userID][keyID] = keyOrDevice
+				}
+
+			default:
+				continue
 			}
 		}
-	*/
+	}
+
+	if err := a.processSelfSignatures(ctx, req.UserID, selfSignatures); err != nil {
+		res.Error = &api.KeyError{
+			Err: fmt.Sprintf("a.processSelfSignatures: %s", err),
+		}
+		return
+	}
+
+	if err := a.processOtherSignatures(ctx, req.UserID, otherSignatures); err != nil {
+		res.Error = &api.KeyError{
+			Err: fmt.Sprintf("a.processOtherSignatures: %s", err),
+		}
+		return
+	}
+
 	res.Error = &api.KeyError{
 		Err: "Not supported yet",
 	}
+}
+
+func (a *KeyInternalAPI) processSelfSignatures(
+	ctx context.Context, userID string,
+	signatures map[string]map[gomatrixserverlib.KeyID]gomatrixserverlib.CrossSigningForKeyOrDevice,
+) error {
+	// Here we will process:
+	// * The user signing their own devices using their self-signing key
+	// * The user signing their master key using one of their devices
+
+	return nil
+}
+
+func (a *KeyInternalAPI) processOtherSignatures(
+	ctx context.Context, userID string,
+	signatures map[string]map[gomatrixserverlib.KeyID]gomatrixserverlib.CrossSigningForKeyOrDevice,
+) error {
+	// Here we will process:
+	// * A user signing someone else's master keys using their user-signing keys
+
+	return nil
 }
 
 func (a *KeyInternalAPI) crossSigningKeys(
