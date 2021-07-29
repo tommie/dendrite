@@ -2,6 +2,8 @@ package internal
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -48,6 +50,8 @@ func sanityCheckKey(key gomatrixserverlib.CrossSigningKey, userID string, purpos
 }
 
 func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.PerformUploadDeviceKeysRequest, res *api.PerformUploadDeviceKeysResponse) {
+	hasMasterKey := false
+
 	if len(req.MasterKey.Keys) > 0 {
 		if err := sanityCheckKey(req.MasterKey, req.UserID, gomatrixserverlib.CrossSigningKeyPurposeMaster); err != nil {
 			res.Error = &api.KeyError{
@@ -55,6 +59,7 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 			}
 			return
 		}
+		hasMasterKey = true
 	}
 
 	if len(req.SelfSigningKey.Keys) > 0 {
@@ -75,20 +80,89 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 		}
 	}
 
-	// TODO: check signatures
+	// If the user hasn't given a new master key, then let's go and get their
+	// existing keys from the database.
+	var masterKey gomatrixserverlib.Base64Bytes
+	if !hasMasterKey {
+		existingKeys, err := a.DB.CrossSigningKeysForUser(ctx, req.UserID)
+		if err != nil {
+			res.Error = &api.KeyError{
+				Err: "User-signing key sanity check failed: " + err.Error(),
+			}
+			return
+		}
 
-	keysToStore := api.CrossSigningKeyMap{}
-	for _, keyData := range req.MasterKey.Keys { // iterates once, see sanityCheckKey
-		keysToStore[gomatrixserverlib.CrossSigningKeyPurposeMaster] = keyData
+		masterKey, hasMasterKey = existingKeys[gomatrixserverlib.CrossSigningKeyPurposeMaster]
+		if !hasMasterKey {
+			res.Error = &api.KeyError{
+				Err: "No master key was found, either in the database or in the request!",
+			}
+			return
+		}
+	} else {
+		for _, keyData := range req.MasterKey.Keys { // iterates once, see sanityCheckKey
+			masterKey = keyData
+		}
 	}
-	for _, keyData := range req.SelfSigningKey.Keys { // iterates once, see sanityCheckKey
-		keysToStore[gomatrixserverlib.CrossSigningKeyPurposeSelfSigning] = keyData
+	masterKeyID := gomatrixserverlib.KeyID(fmt.Sprintf("ed25519:%s", masterKey.Encode()))
+
+	// Work out which things we need to verify the signatures for.
+	toVerify := make(map[gomatrixserverlib.CrossSigningKeyPurpose]gomatrixserverlib.CrossSigningKey, 3)
+	toStore := api.CrossSigningKeyMap{}
+	if len(req.MasterKey.Keys) > 0 {
+		toVerify[gomatrixserverlib.CrossSigningKeyPurposeMaster] = req.MasterKey
 	}
-	for _, keyData := range req.UserSigningKey.Keys { // iterates once, see sanityCheckKey
-		keysToStore[gomatrixserverlib.CrossSigningKeyPurposeUserSigning] = keyData
+	if len(req.SelfSigningKey.Keys) > 0 {
+		toVerify[gomatrixserverlib.CrossSigningKeyPurposeSelfSigning] = req.SelfSigningKey
+	}
+	if len(req.SelfSigningKey.Keys) > 0 {
+		toVerify[gomatrixserverlib.CrossSigningKeyPurposeUserSigning] = req.UserSigningKey
+	}
+	for purpose, key := range toVerify {
+		// Collect together the key IDs we need to verify with. This will include
+		// all of the key IDs specified in the signatures. If the key purpose is
+		// NOT the master key then we also need to include the master key ID here
+		// as we won't accept a self-signing key or a user-signing key without it.
+		checkKeyIDs := make([]gomatrixserverlib.KeyID, 0, len(key.Signatures)+1)
+		for keyID := range key.Signatures[req.UserID] {
+			checkKeyIDs = append(checkKeyIDs, keyID)
+		}
+		if purpose != gomatrixserverlib.CrossSigningKeyPurposeMaster {
+			if _, ok := key.Signatures[req.UserID][masterKeyID]; !ok {
+				checkKeyIDs = append(checkKeyIDs, masterKeyID)
+			}
+		}
+
+		// Marshal the specific key back into JSON so that we can verify the
+		// signature of it.
+		keyJSON, err := json.Marshal(key)
+		if err != nil {
+			res.Error = &api.KeyError{
+				Err:            fmt.Sprintf("The JSON of the key section is invalid: %s", err.Error()),
+				IsMissingParam: true,
+			}
+			return
+		}
+
+		// Now verify the signatures.
+		for _, keyID := range checkKeyIDs {
+			if err := gomatrixserverlib.VerifyJSON(req.UserID, keyID, ed25519.PublicKey(masterKey), keyJSON); err != nil {
+				res.Error = &api.KeyError{
+					Err:                fmt.Sprintf("The signature verification failed using user %q key ID %q: %s", req.UserID, keyID, err.Error()),
+					IsInvalidSignature: true,
+				}
+				return
+			}
+		}
+
+		// If we've reached this point then all the signatures are valid so
+		// add the key to the list of keys to store.
+		for _, keyData := range key.Keys { // iterates once, see sanityCheckKey
+			toStore[purpose] = keyData
+		}
 	}
 
-	if err := a.DB.StoreCrossSigningKeysForUser(ctx, req.UserID, keysToStore, req.StreamID); err != nil {
+	if err := a.DB.StoreCrossSigningKeysForUser(ctx, req.UserID, toStore, req.StreamID); err != nil {
 		res.Error = &api.KeyError{
 			Err: fmt.Sprintf("a.DB.StoreCrossSigningKeysForUser: %s", err),
 		}
