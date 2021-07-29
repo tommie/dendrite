@@ -124,14 +124,6 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 		// the master key because we have no means to verify the signatures - we
 		// instead just need to store them.
 		if purpose != gomatrixserverlib.CrossSigningKeyPurposeMaster {
-			checkKeyIDs := make([]gomatrixserverlib.KeyID, 0, len(key.Signatures)+1)
-			for keyID := range key.Signatures[req.UserID] {
-				checkKeyIDs = append(checkKeyIDs, keyID)
-			}
-			if _, ok := key.Signatures[req.UserID][masterKeyID]; !ok {
-				checkKeyIDs = append(checkKeyIDs, masterKeyID)
-			}
-
 			// Marshal the specific key back into JSON so that we can verify the
 			// signature of it.
 			keyJSON, err := json.Marshal(key)
@@ -143,15 +135,13 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 				return
 			}
 
-			// Now verify the signatures.
-			for _, keyID := range checkKeyIDs {
-				if err := gomatrixserverlib.VerifyJSON(req.UserID, keyID, ed25519.PublicKey(masterKey), keyJSON); err != nil {
-					res.Error = &api.KeyError{
-						Err:                fmt.Sprintf("The signature verification failed using user %q key ID %q: %s", req.UserID, keyID, err.Error()),
-						IsInvalidSignature: true,
-					}
-					return
+			// Now check if the subkey is signed by the master key.
+			if err := gomatrixserverlib.VerifyJSON(req.UserID, masterKeyID, ed25519.PublicKey(masterKey), keyJSON); err != nil {
+				res.Error = &api.KeyError{
+					Err:                fmt.Sprintf("The %q sub-key failed master key signature verification: %s", purpose, err.Error()),
+					IsInvalidSignature: true,
 				}
+				return
 			}
 		}
 
