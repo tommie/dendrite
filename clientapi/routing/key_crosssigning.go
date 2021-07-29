@@ -94,7 +94,10 @@ func UploadCrossSigningDeviceKeys(
 		}
 	}
 
-	return util.JSONResponse{}
+	return util.JSONResponse{
+		Code: http.StatusOK,
+		JSON: struct{}{},
+	}
 }
 
 func UploadCrossSigningDeviceSignatures(req *http.Request, keyserverAPI api.KeyInternalAPI, device *userapi.Device) util.JSONResponse {
@@ -128,5 +131,8 @@ func UploadCrossSigningDeviceSignatures(req *http.Request, keyserverAPI api.KeyI
 		}
 	}
 
-	return util.JSONResponse{}
+	return util.JSONResponse{
+		Code: http.StatusOK,
+		JSON: struct{}{},
+	}
 }
