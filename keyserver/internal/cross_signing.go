@@ -120,44 +120,38 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 	}
 	for purpose, key := range toVerify {
 		// Collect together the key IDs we need to verify with. This will include
-		// all of the key IDs specified in the signatures. If the key purpose is
-		// NOT the master key then we also need to include the master key ID here
-		// as we won't accept a self-signing key or a user-signing key without it.
-		checkKeyIDs := make([]gomatrixserverlib.KeyID, 0, len(key.Signatures)+1)
+		// all of the key IDs specified in the signatures. We don't do this for
+		// the master key because we have no means to verify the signatures - we
+		// instead just need to store them.
 		if purpose != gomatrixserverlib.CrossSigningKeyPurposeMaster {
+			checkKeyIDs := make([]gomatrixserverlib.KeyID, 0, len(key.Signatures)+1)
 			for keyID := range key.Signatures[req.UserID] {
 				checkKeyIDs = append(checkKeyIDs, keyID)
 			}
 			if _, ok := key.Signatures[req.UserID][masterKeyID]; !ok {
 				checkKeyIDs = append(checkKeyIDs, masterKeyID)
 			}
-		}
 
-		// If there are no key IDs to check then there's no point marshalling
-		// the JSON.
-		if len(checkKeyIDs) == 0 && purpose == gomatrixserverlib.CrossSigningKeyPurposeMaster {
-			continue
-		}
-
-		// Marshal the specific key back into JSON so that we can verify the
-		// signature of it.
-		keyJSON, err := json.Marshal(key)
-		if err != nil {
-			res.Error = &api.KeyError{
-				Err:            fmt.Sprintf("The JSON of the key section is invalid: %s", err.Error()),
-				IsMissingParam: true,
-			}
-			return
-		}
-
-		// Now verify the signatures.
-		for _, keyID := range checkKeyIDs {
-			if err := gomatrixserverlib.VerifyJSON(req.UserID, keyID, ed25519.PublicKey(masterKey), keyJSON); err != nil {
+			// Marshal the specific key back into JSON so that we can verify the
+			// signature of it.
+			keyJSON, err := json.Marshal(key)
+			if err != nil {
 				res.Error = &api.KeyError{
-					Err:                fmt.Sprintf("The signature verification failed using user %q key ID %q: %s", req.UserID, keyID, err.Error()),
-					IsInvalidSignature: true,
+					Err:            fmt.Sprintf("The JSON of the key section is invalid: %s", err.Error()),
+					IsMissingParam: true,
 				}
 				return
+			}
+
+			// Now verify the signatures.
+			for _, keyID := range checkKeyIDs {
+				if err := gomatrixserverlib.VerifyJSON(req.UserID, keyID, ed25519.PublicKey(masterKey), keyJSON); err != nil {
+					res.Error = &api.KeyError{
+						Err:                fmt.Sprintf("The signature verification failed using user %q key ID %q: %s", req.UserID, keyID, err.Error()),
+						IsInvalidSignature: true,
+					}
+					return
+				}
 			}
 		}
 
