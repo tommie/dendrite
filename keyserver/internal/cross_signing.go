@@ -177,17 +177,40 @@ func (a *KeyInternalAPI) crossSigningKeys(
 
 		for keyType, keyData := range keys {
 			b64 := keyData.Encode()
+			keyID := gomatrixserverlib.KeyID("ed25519:" + b64)
 			key := gomatrixserverlib.CrossSigningKey{
 				UserID: userID,
 				Usage: []gomatrixserverlib.CrossSigningKeyPurpose{
 					keyType,
 				},
 				Keys: map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes{
-					gomatrixserverlib.KeyID("ed25519:" + b64): keyData,
+					keyID: keyData,
 				},
 			}
 
-			// TODO: populate signatures
+			sigs, err := a.DB.CrossSigningSigsForTarget(ctx, userID, keyID)
+			if err != nil {
+				logrus.WithError(err).Errorf("Failed to get cross-signing signatures for user %q key %q", userID, keyID)
+				return fmt.Errorf("a.DB.CrossSigningSigsForTarget (%q key %q): %w", userID, keyID, err)
+			}
+
+			appendSignature := func(originUserID string, originKeyID gomatrixserverlib.KeyID, signature gomatrixserverlib.Base64Bytes) {
+				if _, ok := key.Signatures[originUserID]; !ok {
+					key.Signatures[originUserID] = make(map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes)
+				}
+				key.Signatures[originUserID][originKeyID] = signature
+			}
+
+			for originUserID, forOrigin := range sigs {
+				for originKeyID, signature := range forOrigin {
+					switch {
+					case req.UserID != "" && originUserID == req.UserID:
+						appendSignature(originUserID, originKeyID, signature)
+					case originUserID == userID:
+						appendSignature(originUserID, originKeyID, signature)
+					}
+				}
+			}
 
 			switch keyType {
 			case gomatrixserverlib.CrossSigningKeyPurposeMaster:

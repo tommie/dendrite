@@ -58,6 +58,8 @@ type CrossSigningKeys interface {
 	InsertCrossSigningKeysForUser(ctx context.Context, txn *sql.Tx, userID string, keyType gomatrixserverlib.CrossSigningKeyPurpose, keyData gomatrixserverlib.Base64Bytes, streamID int64) error
 }
 
-type CrossSigningSigs interface{}
+type CrossSigningSigs interface {
+	SelectCrossSigningSigsForTarget(ctx context.Context, txn *sql.Tx, targetUserID string, targetKeyID gomatrixserverlib.KeyID) (r api.CrossSigningSigMap, err error)
+}
 
 type CrossSigningStreams interface{}

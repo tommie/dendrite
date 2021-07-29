@@ -40,7 +40,11 @@ type KeyInternalAPI interface {
 	QueryDeviceMessages(ctx context.Context, req *QueryDeviceMessagesRequest, res *QueryDeviceMessagesResponse)
 }
 
+// Map of purpose -> public key
 type CrossSigningKeyMap map[gomatrixserverlib.CrossSigningKeyPurpose]gomatrixserverlib.Base64Bytes
+
+// Map of user ID -> key ID -> signature
+type CrossSigningSigMap map[string]map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes
 
 // KeyError is returned if there was a problem performing/querying the server
 type KeyError struct {
@@ -180,6 +184,9 @@ type PerformUploadDeviceSignaturesResponse struct {
 }
 
 type QueryKeysRequest struct {
+	// The user ID asking for the keys, e.g. if from a client API request.
+	// Will not be populated if the key request came from federation.
+	UserID string
 	// Maps user IDs to a list of devices
 	UserToDevices map[string][]string
 	Timeout       time.Duration

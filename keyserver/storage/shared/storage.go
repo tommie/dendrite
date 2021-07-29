@@ -163,6 +163,11 @@ func (d *Database) CrossSigningKeysForUser(ctx context.Context, userID string) (
 	return d.CrossSigningKeysTable.SelectCrossSigningKeysForUser(ctx, nil, userID)
 }
 
+// CrossSigningSigsForTarget returns the signatures for a given user's key ID, if any.
+func (d *Database) CrossSigningSigsForTarget(ctx context.Context, targetUserID string, targetKeyID gomatrixserverlib.KeyID) (api.CrossSigningSigMap, error) {
+	return d.CrossSigningSigsTable.SelectCrossSigningSigsForTarget(ctx, nil, targetUserID, targetKeyID)
+}
+
 // StoreCrossSigningKeysForUser stores the latest known cross-signing keys for a user.
 func (d *Database) StoreCrossSigningKeysForUser(ctx context.Context, userID string, keyMap api.CrossSigningKeyMap, streamID int64) error {
 	return d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {

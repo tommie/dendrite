@@ -15,25 +15,35 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 
+	"github.com/matrix-org/dendrite/internal"
+	"github.com/matrix-org/dendrite/internal/sqlutil"
+	"github.com/matrix-org/dendrite/keyserver/api"
 	"github.com/matrix-org/dendrite/keyserver/storage/tables"
+	"github.com/matrix-org/gomatrixserverlib"
 )
 
 var crossSigningSigsSchema = `
 CREATE TABLE IF NOT EXISTS keyserver_cross_signing_sigs (
-    user_id TEXT NOT NULL,
-	key_id TEXT NOT NULL,
+    origin_user_id TEXT NOT NULL,
+	origin_key_id TEXT NOT NULL,
 	target_user_id TEXT NOT NULL,
-	target_device_id TEXT NOT NULL,
+	target_key_id TEXT NOT NULL,
 	signature TEXT NOT NULL 
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS keyserver_cross_signing_sigs_idx ON keyserver_cross_signing_sigs(user_id, target_user_id, target_device_id);
+CREATE UNIQUE INDEX IF NOT EXISTS keyserver_cross_signing_sigs_idx ON keyserver_cross_signing_sigs(origin_user_id, target_user_id, target_key_id);
 `
 
+const selectCrossSigningSigsForTargetSQL = "" +
+	"SELECT origin_user_id, origin_key_id, signature FROM keyserver_cross_signing_sigs" +
+	" WHERE target_user_id = $1 AND target_key_id = $2"
+
 type crossSigningSigsStatements struct {
-	db *sql.DB
+	db                                  *sql.DB
+	selectCrossSigningSigsForTargetStmt *sql.Stmt
 }
 
 func NewPostgresCrossSigningSigsTable(db *sql.DB) (tables.CrossSigningSigs, error) {
@@ -44,5 +54,32 @@ func NewPostgresCrossSigningSigsTable(db *sql.DB) (tables.CrossSigningSigs, erro
 	if err != nil {
 		return nil, err
 	}
+	if s.selectCrossSigningSigsForTargetStmt, err = db.Prepare(selectCrossSigningSigsForTargetSQL); err != nil {
+		return nil, err
+	}
 	return s, nil
+}
+
+func (s *crossSigningSigsStatements) SelectCrossSigningSigsForTarget(
+	ctx context.Context, txn *sql.Tx, targetUserID string, targetKeyID gomatrixserverlib.KeyID,
+) (r api.CrossSigningSigMap, err error) {
+	rows, err := sqlutil.TxStmt(txn, s.selectCrossSigningSigsForTargetStmt).QueryContext(ctx, targetUserID, targetKeyID)
+	if err != nil {
+		return nil, err
+	}
+	defer internal.CloseAndLogIfError(ctx, rows, "selectCrossSigningSigsForTargetStmt: rows.close() failed")
+	r = api.CrossSigningSigMap{}
+	for rows.Next() {
+		var userID string
+		var keyID gomatrixserverlib.KeyID
+		var signature gomatrixserverlib.Base64Bytes
+		if err := rows.Scan(&userID, &keyID, &signature); err != nil {
+			return nil, err
+		}
+		if _, ok := r[userID]; !ok {
+			r[userID] = map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes{}
+		}
+		r[userID][keyID] = signature
+	}
+	return
 }
