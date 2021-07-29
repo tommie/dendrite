@@ -179,3 +179,18 @@ func (d *Database) StoreCrossSigningKeysForUser(ctx context.Context, userID stri
 		return nil
 	})
 }
+
+// StoreCrossSigningSigsForTarget stores a signature for a target user ID and key/dvice.
+func (d *Database) StoreCrossSigningSigsForTarget(
+	ctx context.Context,
+	originUserID string, originKeyID gomatrixserverlib.KeyID,
+	targetUserID string, targetKeyID gomatrixserverlib.KeyID,
+	signature gomatrixserverlib.Base64Bytes,
+) error {
+	return d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
+		if err := d.CrossSigningSigsTable.InsertCrossSigningSigsForTarget(ctx, nil, originUserID, originKeyID, targetUserID, targetKeyID, signature); err != nil {
+			return fmt.Errorf("d.CrossSigningSigsTable.InsertCrossSigningSigsForTarget: %w", err)
+		}
+		return nil
+	})
+}

@@ -160,6 +160,72 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 }
 
 func (a *KeyInternalAPI) PerformUploadDeviceSignatures(ctx context.Context, req *api.PerformUploadDeviceSignaturesRequest, res *api.PerformUploadDeviceSignaturesResponse) {
+	for targetUserID, forTarget := range req.CrossSigningSignatures {
+		for targetID, signable := range forTarget {
+			switch obj := signable.(type) {
+			case *gomatrixserverlib.CrossSigningKey: // signing a key
+				// Check to see if we know about the target user ID and key ID. If we
+				// don't then we'll just drop the signatures.
+				keys, err := a.DB.CrossSigningKeysForUser(ctx, targetUserID)
+				if err != nil {
+					continue
+				}
+				foundMatchingKey := false
+				for _, key := range keys {
+					if key.Encode() == targetID {
+						foundMatchingKey = true
+					}
+				}
+				if !foundMatchingKey {
+					continue
+				}
+
+				/*
+					keyJSON, err := json.Marshal(obj)
+					if err != nil {
+						res.Error = &api.KeyError{
+							Err: fmt.Sprintf("The JSON of the signable object is invalid: %s", err.Error()),
+						}
+						return
+					}
+				*/
+
+				for originUserID, forOriginUserID := range obj.Signatures {
+					for originKeyID, signature := range forOriginUserID {
+						// TODO: sig checking
+						/*
+							if err := gomatrixserverlib.VerifyJSON(originUserID, originKeyID, ed25519.PublicKey(masterKey), keyJSON); err != nil {
+								res.Error = &api.KeyError{
+									Err:                fmt.Sprintf("The %q sub-key failed master key signature verification: %s", purpose, err.Error()),
+									IsInvalidSignature: true,
+								}
+								return
+							}
+						*/
+
+						err := a.DB.StoreCrossSigningSigsForTarget(ctx, originUserID, originKeyID, targetUserID, gomatrixserverlib.KeyID(targetID), signature)
+						if err != nil {
+							res.Error = &api.KeyError{
+								Err: "Failed to store cross-signing keys for target: " + err.Error(),
+							}
+							return
+						}
+					}
+				}
+
+			case *gomatrixserverlib.CrossSigningSignature: // signing a device
+				// TODO: signatures for devices
+				continue
+
+			default:
+				res.Error = &api.KeyError{
+					Err: "Found an unexpected item type",
+				}
+				return
+			}
+		}
+	}
+
 	res.Error = &api.KeyError{
 		Err: "Not supported yet",
 	}

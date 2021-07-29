@@ -79,5 +79,7 @@ type Database interface {
 
 	CrossSigningKeysForUser(ctx context.Context, userID string) (api.CrossSigningKeyMap, error)
 	CrossSigningSigsForTarget(ctx context.Context, targetUserID string, targetKeyID gomatrixserverlib.KeyID) (api.CrossSigningSigMap, error)
+
 	StoreCrossSigningKeysForUser(ctx context.Context, userID string, keyMap api.CrossSigningKeyMap, streamID int64) error
+	StoreCrossSigningSigsForTarget(ctx context.Context, originUserID string, originKeyID gomatrixserverlib.KeyID, targetUserID string, targetKeyID gomatrixserverlib.KeyID, signature gomatrixserverlib.Base64Bytes) error
 }
