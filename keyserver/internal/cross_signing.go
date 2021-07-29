@@ -208,8 +208,11 @@ func (a *KeyInternalAPI) crossSigningKeys(
 				for originKeyID, signature := range forOrigin {
 					switch {
 					case req.UserID != "" && originUserID == req.UserID:
+						// Include signatures that we created
 						appendSignature(originUserID, originKeyID, signature)
 					case originUserID == userID:
+						// Include signatures that were created by the person whose key
+						// we are processing
 						appendSignature(originUserID, originKeyID, signature)
 					}
 				}
