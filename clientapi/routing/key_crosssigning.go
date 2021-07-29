@@ -104,7 +104,7 @@ func UploadCrossSigningDeviceSignatures(req *http.Request, keyserverAPI api.KeyI
 	uploadReq := &api.PerformUploadDeviceSignaturesRequest{}
 	uploadRes := &api.PerformUploadDeviceSignaturesResponse{}
 
-	if err := httputil.UnmarshalJSONRequest(req, &uploadReq.CrossSigningSignatures); err != nil {
+	if err := httputil.UnmarshalJSONRequest(req, &uploadReq.Signatures); err != nil {
 		return *err
 	}
 

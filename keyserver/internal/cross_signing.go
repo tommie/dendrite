@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func sanityCheckKey(key gomatrixserverlib.CrossSigningKey, userID string, purpose gomatrixserverlib.CrossSigningKeyPurpose) error {
+func sanityCheckKey(key gomatrixserverlib.CrossSigningForKey, userID string, purpose gomatrixserverlib.CrossSigningKeyPurpose) error {
 	// Is there exactly one key?
 	if len(key.Keys) != 1 {
 		return fmt.Errorf("should contain exactly one key")
@@ -108,7 +108,7 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 	masterKeyID := gomatrixserverlib.KeyID(fmt.Sprintf("ed25519:%s", masterKey.Encode()))
 
 	// Work out which things we need to verify the signatures for.
-	toVerify := make(map[gomatrixserverlib.CrossSigningKeyPurpose]gomatrixserverlib.CrossSigningKey, 3)
+	toVerify := make(map[gomatrixserverlib.CrossSigningKeyPurpose]gomatrixserverlib.CrossSigningForKey, 3)
 	toStore := api.CrossSigningKeyMap{}
 	if len(req.MasterKey.Keys) > 0 {
 		toVerify[gomatrixserverlib.CrossSigningKeyPurposeMaster] = req.MasterKey
@@ -160,72 +160,57 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 }
 
 func (a *KeyInternalAPI) PerformUploadDeviceSignatures(ctx context.Context, req *api.PerformUploadDeviceSignaturesRequest, res *api.PerformUploadDeviceSignaturesResponse) {
-	for targetUserID, forTarget := range req.CrossSigningSignatures {
-		for targetID, signable := range forTarget {
-			switch obj := signable.(type) {
-			case *gomatrixserverlib.CrossSigningKey: // signing a key
-				// Check to see if we know about the target user ID and key ID. If we
-				// don't then we'll just drop the signatures.
-				keys, err := a.DB.CrossSigningKeysForUser(ctx, targetUserID)
-				if err != nil {
-					continue
-				}
-				foundMatchingKey := false
-				for _, key := range keys {
-					if key.Encode() == targetID {
-						foundMatchingKey = true
-					}
-				}
-				if !foundMatchingKey {
-					continue
-				}
+	/*
+		for targetUserID, forTarget := range req.Signatures {
+			for targetID, signable := range forTarget {
+				// Work out which type of thingy it is.
 
-				/*
-					keyJSON, err := json.Marshal(obj)
+
+				switch obj := signable.(type) {
+				case *gomatrixserverlib.CrossSigningForKey: // signing a key
+					// Check to see if we know about the target user ID and key ID. If we
+					// don't then we'll just drop the signatures.
+					keys, err := a.DB.CrossSigningKeysForUser(ctx, targetUserID)
 					if err != nil {
-						res.Error = &api.KeyError{
-							Err: fmt.Sprintf("The JSON of the signable object is invalid: %s", err.Error()),
-						}
-						return
+						continue
 					}
-				*/
+					foundMatchingKey := false
+					for _, key := range keys {
+						if key.Encode() == targetID {
+							foundMatchingKey = true
+						}
+					}
+					if !foundMatchingKey {
+						continue
+					}
 
-				for originUserID, forOriginUserID := range obj.Signatures {
-					for originKeyID, signature := range forOriginUserID {
-						// TODO: sig checking
-						/*
-							if err := gomatrixserverlib.VerifyJSON(originUserID, originKeyID, ed25519.PublicKey(masterKey), keyJSON); err != nil {
+					for originUserID, forOriginUserID := range obj.Signatures {
+						for originKeyID, signature := range forOriginUserID {
+							// TODO: check signatures
+
+							err := a.DB.StoreCrossSigningSigsForTarget(ctx, originUserID, originKeyID, targetUserID, gomatrixserverlib.KeyID(targetID), signature)
+							if err != nil {
 								res.Error = &api.KeyError{
-									Err:                fmt.Sprintf("The %q sub-key failed master key signature verification: %s", purpose, err.Error()),
-									IsInvalidSignature: true,
+									Err: "Failed to store cross-signing keys for target: " + err.Error(),
 								}
 								return
 							}
-						*/
-
-						err := a.DB.StoreCrossSigningSigsForTarget(ctx, originUserID, originKeyID, targetUserID, gomatrixserverlib.KeyID(targetID), signature)
-						if err != nil {
-							res.Error = &api.KeyError{
-								Err: "Failed to store cross-signing keys for target: " + err.Error(),
-							}
-							return
 						}
 					}
-				}
 
-			case *gomatrixserverlib.CrossSigningSignature: // signing a device
-				// TODO: signatures for devices
-				continue
+				case *gomatrixserverlib.CrossSigningForDevice: // signing a device
+					// TODO: signatures for devices
+					continue
 
-			default:
-				res.Error = &api.KeyError{
-					Err: "Found an unexpected item type",
+				default:
+					res.Error = &api.KeyError{
+						Err: "Found an unexpected item type",
+					}
+					return
 				}
-				return
 			}
 		}
-	}
-
+	*/
 	res.Error = &api.KeyError{
 		Err: "Not supported yet",
 	}
@@ -244,7 +229,7 @@ func (a *KeyInternalAPI) crossSigningKeys(
 		for keyType, keyData := range keys {
 			b64 := keyData.Encode()
 			keyID := gomatrixserverlib.KeyID("ed25519:" + b64)
-			key := gomatrixserverlib.CrossSigningKey{
+			key := gomatrixserverlib.CrossSigningForKey{
 				UserID: userID,
 				Usage: []gomatrixserverlib.CrossSigningKeyPurpose{
 					keyType,

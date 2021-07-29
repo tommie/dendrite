@@ -91,7 +91,7 @@ func SendSigningKeyUpdate(
 	ctx context.Context,
 	eduAPI EDUServerInputAPI,
 	userID string,
-	masterKey, selfSigningKey gomatrixserverlib.CrossSigningKey,
+	masterKey, selfSigningKey gomatrixserverlib.CrossSigningForKey,
 ) error {
 	request := InputSigningKeyUpdateRequest{
 		SigningKeyUpdate: SigningKeyUpdate{

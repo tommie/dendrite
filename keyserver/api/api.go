@@ -174,7 +174,7 @@ type PerformUploadDeviceKeysResponse struct {
 }
 
 type PerformUploadDeviceSignaturesRequest struct {
-	gomatrixserverlib.CrossSigningSignatures
+	Signatures map[string]map[gomatrixserverlib.KeyID]json.RawMessage
 	// The user that uploaded the sig, should be populated by the clientapi.
 	UserID string `json:"user_id"`
 }
@@ -198,9 +198,9 @@ type QueryKeysResponse struct {
 	// Map of user_id to device_id to device_key
 	DeviceKeys map[string]map[string]json.RawMessage
 	// Maps of user_id to cross signing key
-	MasterKeys      map[string]gomatrixserverlib.CrossSigningKey
-	SelfSigningKeys map[string]gomatrixserverlib.CrossSigningKey
-	UserSigningKeys map[string]gomatrixserverlib.CrossSigningKey
+	MasterKeys      map[string]gomatrixserverlib.CrossSigningForKey
+	SelfSigningKeys map[string]gomatrixserverlib.CrossSigningForKey
+	UserSigningKeys map[string]gomatrixserverlib.CrossSigningForKey
 	// Set if there was a fatal error processing this query
 	Error *KeyError
 }

@@ -76,9 +76,9 @@ type InputReceiptEventRequest struct {
 type InputReceiptEventResponse struct{}
 
 type SigningKeyUpdate struct {
-	MasterKey      gomatrixserverlib.CrossSigningKey `json:"master_key"`
-	SelfSigningKey gomatrixserverlib.CrossSigningKey `json:"cross_signing_key"`
-	UserID         string                            `json:"user_id"`
+	MasterKey      gomatrixserverlib.CrossSigningForKey `json:"master_key"`
+	SelfSigningKey gomatrixserverlib.CrossSigningForKey `json:"cross_signing_key"`
+	UserID         string                               `json:"user_id"`
 }
 
 type InputSigningKeyUpdateRequest struct {

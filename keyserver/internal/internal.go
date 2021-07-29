@@ -221,9 +221,9 @@ func (a *KeyInternalAPI) QueryDeviceMessages(ctx context.Context, req *api.Query
 
 func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse) {
 	res.DeviceKeys = make(map[string]map[string]json.RawMessage)
-	res.MasterKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
-	res.SelfSigningKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
-	res.UserSigningKeys = make(map[string]gomatrixserverlib.CrossSigningKey)
+	res.MasterKeys = make(map[string]gomatrixserverlib.CrossSigningForKey)
+	res.SelfSigningKeys = make(map[string]gomatrixserverlib.CrossSigningForKey)
+	res.UserSigningKeys = make(map[string]gomatrixserverlib.CrossSigningForKey)
 	res.Failures = make(map[string]interface{})
 
 	// get cross-signing keys from the database

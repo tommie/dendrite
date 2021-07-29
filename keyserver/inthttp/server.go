@@ -73,7 +73,7 @@ func AddRoutes(internalAPIMux *mux.Router, s api.KeyInternalAPI) {
 		httputil.MakeInternalAPI("performUploadDeviceSignatures", func(req *http.Request) util.JSONResponse {
 			request := api.PerformUploadDeviceSignaturesRequest{}
 			response := api.PerformUploadDeviceSignaturesResponse{}
-			if err := json.NewDecoder(req.Body).Decode(&request.CrossSigningSignatures); err != nil {
+			if err := json.NewDecoder(req.Body).Decode(&request.Signatures); err != nil {
 				return util.MessageResponse(http.StatusBadRequest, err.Error())
 			}
 			s.PerformUploadDeviceSignatures(req.Context(), &request, &response)
