@@ -124,13 +124,19 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 		// NOT the master key then we also need to include the master key ID here
 		// as we won't accept a self-signing key or a user-signing key without it.
 		checkKeyIDs := make([]gomatrixserverlib.KeyID, 0, len(key.Signatures)+1)
-		for keyID := range key.Signatures[req.UserID] {
-			checkKeyIDs = append(checkKeyIDs, keyID)
-		}
 		if purpose != gomatrixserverlib.CrossSigningKeyPurposeMaster {
+			for keyID := range key.Signatures[req.UserID] {
+				checkKeyIDs = append(checkKeyIDs, keyID)
+			}
 			if _, ok := key.Signatures[req.UserID][masterKeyID]; !ok {
 				checkKeyIDs = append(checkKeyIDs, masterKeyID)
 			}
+		}
+
+		// If there are no key IDs to check then there's no point marshalling
+		// the JSON.
+		if len(checkKeyIDs) == 0 && purpose == gomatrixserverlib.CrossSigningKeyPurposeMaster {
+			continue
 		}
 
 		// Marshal the specific key back into JSON so that we can verify the
