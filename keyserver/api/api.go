@@ -161,6 +161,8 @@ type PerformUploadDeviceKeysRequest struct {
 	gomatrixserverlib.CrossSigningKeys
 	// The user that uploaded the key, should be populated by the clientapi.
 	UserID string `json:"user_id"`
+	// The stream ID that the keys will be uploaded at
+	StreamID int64 `json:"stream_id"`
 }
 
 type PerformUploadDeviceKeysResponse struct {

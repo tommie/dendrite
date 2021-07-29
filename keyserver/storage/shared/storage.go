@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/keyserver/api"
@@ -159,5 +160,17 @@ func (d *Database) MarkDeviceListStale(ctx context.Context, userID string, isSta
 
 // CrossSigningKeysForUser returns the latest known cross-signing keys for a user, if any.
 func (d *Database) CrossSigningKeysForUser(ctx context.Context, userID string) (api.CrossSigningKeyMap, error) {
-	return d.CrossSigningKeysTable.SelectCrossSigningKeysForUser(ctx, userID)
+	return d.CrossSigningKeysTable.SelectCrossSigningKeysForUser(ctx, nil, userID)
+}
+
+// StoreCrossSigningKeysForUser stores the latest known cross-signing keys for a user.
+func (d *Database) StoreCrossSigningKeysForUser(ctx context.Context, userID string, keyMap api.CrossSigningKeyMap, streamID int64) error {
+	return d.Writer.Do(d.DB, nil, func(txn *sql.Tx) error {
+		for keyType, keyData := range keyMap {
+			if err := d.CrossSigningKeysTable.InsertCrossSigningKeysForUser(ctx, txn, userID, keyType, keyData, streamID); err != nil {
+				return fmt.Errorf("d.CrossSigningKeysTable.InsertCrossSigningKeysForUser: %w", err)
+			}
+		}
+		return nil
+	})
 }

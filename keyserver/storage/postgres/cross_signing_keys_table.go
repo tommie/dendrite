@@ -17,8 +17,10 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/matrix-org/dendrite/internal"
+	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/keyserver/api"
 	"github.com/matrix-org/dendrite/keyserver/storage/tables"
 	"github.com/matrix-org/gomatrixserverlib"
@@ -40,9 +42,14 @@ const selectCrossSigningKeysForUserSQL = "" +
 	" WHERE user_id = $1" +
 	" ORDER BY user_id, key_type, stream_id DESC"
 
+const insertCrossSigningKeysForUserSQL = "" +
+	"INSERT INTO keyserver_cross_signing_keys (user_id, key_type, key_data, stream_id)" +
+	" VALUES($1, $2, $3, $4)"
+
 type crossSigningKeysStatements struct {
 	db                                *sql.DB
 	selectCrossSigningKeysForUserStmt *sql.Stmt
+	insertCrossSigningKeysForUserStmt *sql.Stmt
 }
 
 func NewPostgresCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, error) {
@@ -56,13 +63,16 @@ func NewPostgresCrossSigningKeysTable(db *sql.DB) (tables.CrossSigningKeys, erro
 	if s.selectCrossSigningKeysForUserStmt, err = db.Prepare(selectCrossSigningKeysForUserSQL); err != nil {
 		return nil, err
 	}
+	if s.insertCrossSigningKeysForUserStmt, err = db.Prepare(insertCrossSigningKeysForUserSQL); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
 func (s *crossSigningKeysStatements) SelectCrossSigningKeysForUser(
-	ctx context.Context, userID string,
+	ctx context.Context, txn *sql.Tx, userID string,
 ) (r api.CrossSigningKeyMap, err error) {
-	rows, err := s.selectCrossSigningKeysForUserStmt.QueryContext(ctx, userID)
+	rows, err := sqlutil.TxStmt(txn, s.selectCrossSigningKeysForUserStmt).QueryContext(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -77,4 +87,13 @@ func (s *crossSigningKeysStatements) SelectCrossSigningKeysForUser(
 		r[keyType] = keyData
 	}
 	return
+}
+
+func (s *crossSigningKeysStatements) InsertCrossSigningKeysForUser(
+	ctx context.Context, txn *sql.Tx, userID string, keyType gomatrixserverlib.CrossSigningKeyPurpose, keyData gomatrixserverlib.Base64Bytes, streamID int64,
+) error {
+	if _, err := sqlutil.TxStmt(txn, s.insertCrossSigningKeysForUserStmt).ExecContext(ctx, userID, keyType, keyData, streamID); err != nil {
+		return fmt.Errorf("s.insertCrossSigningKeysForUserStmt: %w", err)
+	}
+	return nil
 }

@@ -78,4 +78,5 @@ type Database interface {
 	MarkDeviceListStale(ctx context.Context, userID string, isStale bool) error
 
 	CrossSigningKeysForUser(ctx context.Context, userID string) (api.CrossSigningKeyMap, error)
+	StoreCrossSigningKeysForUser(ctx context.Context, userID string, keyMap api.CrossSigningKeyMap, streamID int64) error
 }

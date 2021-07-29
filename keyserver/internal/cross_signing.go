@@ -75,8 +75,23 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 		}
 	}
 
-	res.Error = &api.KeyError{
-		Err: "Not supported yet",
+	// TODO: check signatures
+
+	keysToStore := api.CrossSigningKeyMap{}
+	for _, keyData := range req.MasterKey.Keys { // iterates once, see sanityCheckKey
+		keysToStore[gomatrixserverlib.CrossSigningKeyPurposeMaster] = keyData
+	}
+	for _, keyData := range req.SelfSigningKey.Keys { // iterates once, see sanityCheckKey
+		keysToStore[gomatrixserverlib.CrossSigningKeyPurposeSelfSigning] = keyData
+	}
+	for _, keyData := range req.UserSigningKey.Keys { // iterates once, see sanityCheckKey
+		keysToStore[gomatrixserverlib.CrossSigningKeyPurposeUserSigning] = keyData
+	}
+
+	if err := a.DB.StoreCrossSigningKeysForUser(ctx, req.UserID, keysToStore, req.StreamID); err != nil {
+		res.Error = &api.KeyError{
+			Err: fmt.Sprintf("a.DB.StoreCrossSigningKeysForUser: %s", err),
+		}
 	}
 }
 

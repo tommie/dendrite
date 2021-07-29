@@ -54,7 +54,8 @@ type StaleDeviceLists interface {
 }
 
 type CrossSigningKeys interface {
-	SelectCrossSigningKeysForUser(ctx context.Context, userID string) (r api.CrossSigningKeyMap, err error)
+	SelectCrossSigningKeysForUser(ctx context.Context, txn *sql.Tx, userID string) (r api.CrossSigningKeyMap, err error)
+	InsertCrossSigningKeysForUser(ctx context.Context, txn *sql.Tx, userID string, keyType gomatrixserverlib.CrossSigningKeyPurpose, keyData gomatrixserverlib.Base64Bytes, streamID int64) error
 }
 
 type CrossSigningSigs interface{}
