@@ -95,7 +95,8 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 		masterKey, hasMasterKey = existingKeys[gomatrixserverlib.CrossSigningKeyPurposeMaster]
 		if !hasMasterKey {
 			res.Error = &api.KeyError{
-				Err: "No master key was found, either in the database or in the request!",
+				Err:            "No master key was found, either in the database or in the request!",
+				IsMissingParam: true,
 			}
 			return
 		}
@@ -129,8 +130,7 @@ func (a *KeyInternalAPI) PerformUploadDeviceKeys(ctx context.Context, req *api.P
 			keyJSON, err := json.Marshal(key)
 			if err != nil {
 				res.Error = &api.KeyError{
-					Err:            fmt.Sprintf("The JSON of the key section is invalid: %s", err.Error()),
-					IsMissingParam: true,
+					Err: fmt.Sprintf("The JSON of the key section is invalid: %s", err.Error()),
 				}
 				return
 			}
