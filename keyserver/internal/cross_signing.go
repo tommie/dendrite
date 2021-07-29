@@ -195,6 +195,9 @@ func (a *KeyInternalAPI) crossSigningKeys(
 			}
 
 			appendSignature := func(originUserID string, originKeyID gomatrixserverlib.KeyID, signature gomatrixserverlib.Base64Bytes) {
+				if key.Signatures == nil {
+					key.Signatures = api.CrossSigningSigMap{}
+				}
 				if _, ok := key.Signatures[originUserID]; !ok {
 					key.Signatures[originUserID] = make(map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes)
 				}
