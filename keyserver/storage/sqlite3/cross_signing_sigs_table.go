@@ -43,7 +43,7 @@ const selectCrossSigningSigsForTargetSQL = "" +
 	" WHERE target_user_id = $1 AND target_key_id = $2"
 
 const insertCrossSigningSigsForTargetSQL = "" +
-	"INSERT INTO keyserver_cross_signing_keys (origin_user_id, origin_key_id, target_user_id, target_key_id, signature)" +
+	"INSERT INTO keyserver_cross_signing_sigs (origin_user_id, origin_key_id, target_user_id, target_key_id, signature)" +
 	" VALUES($1, $2, $3, $4, $5)"
 
 type crossSigningSigsStatements struct {
