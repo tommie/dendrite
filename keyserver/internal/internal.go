@@ -288,17 +288,13 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 			if _, ok := domainToCrossSigningKeys[domain]; !ok {
 				domainToCrossSigningKeys[domain] = make(map[string]struct{})
 			}
-			if _, ok := domainToCrossSigningKeys[domain][userID]; !ok {
-				domainToCrossSigningKeys[domain][userID] = struct{}{}
-			}
+			domainToCrossSigningKeys[domain][userID] = struct{}{}
 		}
 		if _, ok := res.SelfSigningKeys[userID]; !ok {
 			if _, ok := domainToCrossSigningKeys[domain]; !ok {
 				domainToCrossSigningKeys[domain] = make(map[string]struct{})
 			}
-			if _, ok := domainToCrossSigningKeys[domain][userID]; !ok {
-				domainToCrossSigningKeys[domain][userID] = struct{}{}
-			}
+			domainToCrossSigningKeys[domain][userID] = struct{}{}
 		}
 	}
 
@@ -319,6 +315,9 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 			}
 		}
 	}
+
+	util.GetLogger(ctx).Infof("Domain to cross-signing keys: %+v", domainToCrossSigningKeys)
+	util.GetLogger(ctx).Infof("Domain to device keys: %+v", domainToDeviceKeys)
 
 	// perform key queries for remote devices
 	a.queryRemoteKeys(ctx, req.Timeout, res, domainToDeviceKeys)
