@@ -316,9 +316,6 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 		}
 	}
 
-	util.GetLogger(ctx).Infof("Domain to cross-signing keys: %+v", domainToCrossSigningKeys)
-	util.GetLogger(ctx).Infof("Domain to device keys: %+v", domainToDeviceKeys)
-
 	// perform key queries for remote devices
 	a.queryRemoteKeys(ctx, req.Timeout, res, domainToDeviceKeys)
 }
@@ -448,7 +445,6 @@ func (a *KeyInternalAPI) queryRemoteKeysOnServer(
 		}
 	}
 	queryKeysResp, err := a.FedClient.QueryKeys(fedCtx, gomatrixserverlib.ServerName(serverName), devKeys)
-	util.GetLogger(fedCtx).Infof("Query keys response: %+v", queryKeysResp)
 	if err == nil {
 		resultCh <- &queryKeysResp
 		return

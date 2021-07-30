@@ -9,7 +9,6 @@ import (
 
 	"github.com/matrix-org/dendrite/keyserver/api"
 	"github.com/matrix-org/gomatrixserverlib"
-	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -304,6 +303,4 @@ func (a *KeyInternalAPI) crossSigningKeysFromDatabase(
 			}
 		}
 	}
-
-	util.GetLogger(ctx).Infof("Found cross-signing keys: master %+v, self-signing %+v, user-signing %+v", res.MasterKeys, res.SelfSigningKeys, res.UserSigningKeys)
 }
