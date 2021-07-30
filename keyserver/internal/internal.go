@@ -227,17 +227,13 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 	res.Failures = make(map[string]interface{})
 
 	// get cross-signing keys from the database
-	crossSigningSatisfiedLocally := true
 	if err := a.crossSigningKeys(ctx, req, res); err != nil {
 		util.GetLogger(ctx).WithError(err).Error("Failed to retrieve cross-signing keys from database")
-		crossSigningSatisfiedLocally = false
-	}
-	if len(res.MasterKeys) == 0 || len(res.SelfSigningKeys) == 0 {
-		crossSigningSatisfiedLocally = false
 	}
 
 	// make a map from domain to device keys
 	domainToDeviceKeys := make(map[string]map[string][]string)
+	domainToCrossSigningKeys := make(map[string]struct{})
 	for userID, deviceIDs := range req.UserToDevices {
 		_, serverName, err := gomatrixserverlib.SplitID('@', userID)
 		if err != nil {
@@ -288,11 +284,21 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 			domainToDeviceKeys[domain] = make(map[string][]string)
 			domainToDeviceKeys[domain][userID] = append(domainToDeviceKeys[domain][userID], deviceIDs...)
 		}
+		// work out if our cross-signing request for this user was
+		// satisfied
+		if _, ok := domainToCrossSigningKeys[userID]; !ok {
+			if _, ok := res.MasterKeys[userID]; !ok {
+				domainToCrossSigningKeys[userID] = struct{}{}
+			}
+			if _, ok := res.SelfSigningKeys[userID]; !ok {
+				domainToCrossSigningKeys[userID] = struct{}{}
+			}
+		}
 	}
 
 	// attempt to satisfy key queries from the local database first as we should get device updates pushed to us
 	domainToDeviceKeys = a.remoteKeysFromDatabase(ctx, res, domainToDeviceKeys)
-	if len(domainToDeviceKeys) == 0 && crossSigningSatisfiedLocally {
+	if len(domainToDeviceKeys) == 0 && len(domainToCrossSigningKeys) == 0 {
 		return // nothing to query
 	}
 
