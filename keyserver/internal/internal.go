@@ -227,9 +227,7 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 	res.Failures = make(map[string]interface{})
 
 	// get cross-signing keys from the database
-	if err := a.crossSigningKeys(ctx, req, res); err != nil {
-		util.GetLogger(ctx).WithError(err).Error("Failed to retrieve cross-signing keys from database")
-	}
+	a.crossSigningKeys(ctx, req, res)
 
 	// make a map from domain to device keys
 	domainToDeviceKeys := make(map[string]map[string][]string)

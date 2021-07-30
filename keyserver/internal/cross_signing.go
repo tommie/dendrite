@@ -240,12 +240,12 @@ func (a *KeyInternalAPI) processOtherSignatures(
 
 func (a *KeyInternalAPI) crossSigningKeys(
 	ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse,
-) error {
+) {
 	for userID := range req.UserToDevices {
 		keys, err := a.DB.CrossSigningKeysForUser(ctx, userID)
 		if err != nil {
 			logrus.WithError(err).Errorf("Failed to get cross-signing keys for user %q", userID)
-			return fmt.Errorf("a.DB.CrossSigningKeysForUser (%q): %w", userID, err)
+			continue
 		}
 
 		for keyType, keyData := range keys {
@@ -264,7 +264,7 @@ func (a *KeyInternalAPI) crossSigningKeys(
 			sigs, err := a.DB.CrossSigningSigsForTarget(ctx, userID, keyID)
 			if err != nil {
 				logrus.WithError(err).Errorf("Failed to get cross-signing signatures for user %q key %q", userID, keyID)
-				return fmt.Errorf("a.DB.CrossSigningSigsForTarget (%q key %q): %w", userID, keyID, err)
+				continue
 			}
 
 			appendSignature := func(originUserID string, originKeyID gomatrixserverlib.KeyID, signature gomatrixserverlib.Base64Bytes) {
@@ -303,6 +303,4 @@ func (a *KeyInternalAPI) crossSigningKeys(
 			}
 		}
 	}
-
-	return nil
 }
