@@ -218,12 +218,31 @@ func (a *KeyInternalAPI) PerformUploadDeviceSignatures(ctx context.Context, req 
 }
 
 func (a *KeyInternalAPI) processSelfSignatures(
-	ctx context.Context, userID string,
+	ctx context.Context, _ string,
 	signatures map[string]map[gomatrixserverlib.KeyID]gomatrixserverlib.CrossSigningForKeyOrDevice,
 ) error {
 	// Here we will process:
 	// * The user signing their own devices using their self-signing key
 	// * The user signing their master key using one of their devices
+
+	for targetUserID, forTargetUserID := range signatures {
+		for targetKeyID, signature := range forTargetUserID {
+			switch sig := signature.CrossSigningBody.(type) {
+			case *gomatrixserverlib.CrossSigningForKey:
+				for originUserID, forOriginUserID := range sig.Signatures {
+					for originKeyID, originSig := range forOriginUserID {
+						if err := a.DB.StoreCrossSigningSigsForTarget(
+							ctx, originUserID, originKeyID, targetUserID, targetKeyID, originSig,
+						); err != nil {
+							return fmt.Errorf("a.DB.StoreCrossSigningKeysForTarget: %w", err)
+						}
+					}
+				}
+
+			case *gomatrixserverlib.CrossSigningForDevice:
+			}
+		}
+	}
 
 	return nil
 }
@@ -237,6 +256,54 @@ func (a *KeyInternalAPI) processOtherSignatures(
 
 	return nil
 }
+
+/*
+func (a *KeyInternalAPI) crossSigningKeysForUser(
+	ctx context.Context, userID string,
+) (api.CrossSigningKeyMap, error) {
+	keymap, err := a.DB.CrossSigningKeysForUser(ctx, userID)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("a.DB.CrossSigningKeysForUser: %w", err)
+	}
+
+	if len(keymap) > 0 {
+		return keymap, nil
+	}
+
+	req := &api.QueryKeysRequest{
+		UserToDevices: map[string][]string{
+			userID: {},
+		},
+	}
+	res := &api.QueryKeysResponse{}
+	a.QueryKeys(ctx, req, res)
+	if res.Error != nil {
+		return nil, fmt.Errorf("a.QueryKeys: %s", res.Error.Error())
+	}
+
+	result := api.CrossSigningKeyMap{}
+	if masterKey, ok := res.MasterKeys[userID]; ok {
+		if err := sanityCheckKey(masterKey, userID, gomatrixserverlib.CrossSigningKeyPurposeMaster); err != nil {
+			return nil, fmt.Errorf("sanityCheckKey: %w", err)
+		}
+		for _, key := range masterKey.Keys {
+			result[gomatrixserverlib.CrossSigningKeyPurposeMaster] = key
+			break
+		}
+	}
+	if selfSigningKey, ok := res.SelfSigningKeys[userID]; ok {
+		if err := sanityCheckKey(selfSigningKey, userID, gomatrixserverlib.CrossSigningKeyPurposeSelfSigning); err != nil {
+			return nil, fmt.Errorf("sanityCheckKey: %w", err)
+		}
+		for _, key := range selfSigningKey.Keys {
+			result[gomatrixserverlib.CrossSigningKeyPurposeSelfSigning] = key
+			break
+		}
+	}
+
+	return result, nil
+}
+*/
 
 func (a *KeyInternalAPI) crossSigningKeysFromDatabase(
 	ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse,
