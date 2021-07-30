@@ -239,7 +239,7 @@ func (a *KeyInternalAPI) processOtherSignatures(
 	return nil
 }
 
-func (a *KeyInternalAPI) crossSigningKeys(
+func (a *KeyInternalAPI) crossSigningKeysFromDatabase(
 	ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse,
 ) {
 	for userID := range req.UserToDevices {

@@ -227,7 +227,7 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 	res.Failures = make(map[string]interface{})
 
 	// get cross-signing keys from the database
-	a.crossSigningKeys(ctx, req, res)
+	a.crossSigningKeysFromDatabase(ctx, req, res)
 
 	// make a map from domain to device keys
 	domainToDeviceKeys := make(map[string]map[string][]string)
@@ -448,6 +448,7 @@ func (a *KeyInternalAPI) queryRemoteKeysOnServer(
 		}
 	}
 	queryKeysResp, err := a.FedClient.QueryKeys(fedCtx, gomatrixserverlib.ServerName(serverName), devKeys)
+	util.GetLogger(fedCtx).Infof("Query keys response: %+v", queryKeysResp)
 	if err == nil {
 		resultCh <- &queryKeysResp
 		return
