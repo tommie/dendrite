@@ -232,6 +232,9 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 		util.GetLogger(ctx).WithError(err).Error("Failed to retrieve cross-signing keys from database")
 		crossSigningSatisfiedLocally = false
 	}
+	if len(res.MasterKeys) == 0 || len(res.SelfSigningKeys) == 0 {
+		crossSigningSatisfiedLocally = false
+	}
 
 	// make a map from domain to device keys
 	domainToDeviceKeys := make(map[string]map[string][]string)
