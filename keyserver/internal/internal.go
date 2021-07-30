@@ -416,7 +416,7 @@ func (a *KeyInternalAPI) queryRemoteKeysOnServer(
 	for userID, deviceIDs := range devKeys {
 		if len(deviceIDs) == 0 {
 			userIDsForAllDevices = append(userIDsForAllDevices, userID)
-			delete(devKeys, userID)
+			//delete(devKeys, userID)
 		}
 	}
 	for _, userID := range userIDsForAllDevices {
