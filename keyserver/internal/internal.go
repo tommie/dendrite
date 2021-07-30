@@ -30,8 +30,6 @@ import (
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 )
 
 type KeyInternalAPI struct {
@@ -210,7 +208,7 @@ func (a *KeyInternalAPI) QueryDeviceMessages(ctx context.Context, req *api.Query
 	// remove deleted devices
 	var result []api.DeviceMessage
 	for _, m := range msgs {
-		if m.KeyJSON == nil {
+		if m.DeviceKeys == nil {
 			continue
 		}
 		result = append(result, m)
@@ -220,7 +218,7 @@ func (a *KeyInternalAPI) QueryDeviceMessages(ctx context.Context, req *api.Query
 }
 
 func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysRequest, res *api.QueryKeysResponse) {
-	res.DeviceKeys = make(map[string]map[string]json.RawMessage)
+	res.DeviceKeys = make(map[string]map[string]gomatrixserverlib.DeviceKeys)
 	res.Failures = make(map[string]interface{})
 	// make a map from domain to device keys
 	domainToDeviceKeys := make(map[string]map[string][]string)
@@ -254,21 +252,19 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 			}
 
 			if res.DeviceKeys[userID] == nil {
-				res.DeviceKeys[userID] = make(map[string]json.RawMessage)
+				res.DeviceKeys[userID] = make(map[string]gomatrixserverlib.DeviceKeys)
 			}
 			for _, dk := range deviceKeys {
-				if len(dk.KeyJSON) == 0 {
+				if dk.DeviceKeys == nil {
 					continue // don't include blank keys
 				}
 				// inject display name if known (either locally or remotely)
-				displayName := dk.DisplayName
+				displayName := dk.DisplayName()
 				if queryRes.DeviceInfo[dk.DeviceID].DisplayName != "" {
 					displayName = queryRes.DeviceInfo[dk.DeviceID].DisplayName
 				}
-				dk.KeyJSON, _ = sjson.SetBytes(dk.KeyJSON, "unsigned", struct {
-					DisplayName string `json:"device_display_name,omitempty"`
-				}{displayName})
-				res.DeviceKeys[userID][dk.DeviceID] = dk.KeyJSON
+				dk.Unsigned["device_display_name"] = displayName
+				res.DeviceKeys[userID][dk.DeviceID] = *dk.DeviceKeys
 			}
 		} else {
 			domainToDeviceKeys[domain] = make(map[string][]string)
@@ -335,13 +331,9 @@ func (a *KeyInternalAPI) queryRemoteKeys(
 
 	for result := range resultCh {
 		for userID, nest := range result.DeviceKeys {
-			res.DeviceKeys[userID] = make(map[string]json.RawMessage)
+			res.DeviceKeys[userID] = make(map[string]gomatrixserverlib.DeviceKeys)
 			for deviceID, deviceKey := range nest {
-				keyJSON, err := json.Marshal(deviceKey)
-				if err != nil {
-					continue
-				}
-				res.DeviceKeys[userID][deviceID] = keyJSON
+				res.DeviceKeys[userID][deviceID] = deviceKey
 			}
 		}
 	}
@@ -432,18 +424,16 @@ func (a *KeyInternalAPI) populateResponseWithDeviceKeysFromDatabase(
 		return fmt.Errorf("DeviceKeysForUser %s returned no keys but wanted all keys, falling back to remote", userID)
 	}
 	if res.DeviceKeys[userID] == nil {
-		res.DeviceKeys[userID] = make(map[string]json.RawMessage)
+		res.DeviceKeys[userID] = make(map[string]gomatrixserverlib.DeviceKeys)
 	}
 
 	for _, key := range keys {
-		if len(key.KeyJSON) == 0 {
+		if key.DeviceKeys == nil {
 			continue // ignore deleted keys
 		}
 		// inject the display name
-		key.KeyJSON, _ = sjson.SetBytes(key.KeyJSON, "unsigned", struct {
-			DisplayName string `json:"device_display_name,omitempty"`
-		}{key.DisplayName})
-		res.DeviceKeys[userID][key.DeviceID] = key.KeyJSON
+		key.DeviceKeys.Unsigned["device_display_name"] = key.DisplayName()
+		res.DeviceKeys[userID][key.DeviceID] = *key.DeviceKeys
 	}
 	return nil
 }
@@ -459,21 +449,19 @@ func (a *KeyInternalAPI) uploadLocalDeviceKeys(ctx context.Context, req *api.Per
 		if serverName != a.ThisServer {
 			continue // ignore remote users
 		}
-		if len(key.KeyJSON) == 0 {
-			keysToStore = append(keysToStore, key.WithStreamID(0))
+		if len(key.Keys) == 0 {
+			keysToStore = append(keysToStore, api.DeviceMessage{DeviceKeys: &key, StreamID: 0})
 			continue // deleted keys don't need sanity checking
 		}
-		gotUserID := gjson.GetBytes(key.KeyJSON, "user_id").Str
-		gotDeviceID := gjson.GetBytes(key.KeyJSON, "device_id").Str
-		if gotUserID == key.UserID && gotDeviceID == key.DeviceID {
-			keysToStore = append(keysToStore, key.WithStreamID(0))
+		if req.UserID == key.UserID && req.DeviceID == key.DeviceID {
+			keysToStore = append(keysToStore, api.DeviceMessage{DeviceKeys: &key, StreamID: 0})
 			continue
 		}
 
 		res.KeyError(key.UserID, key.DeviceID, &api.KeyError{
 			Err: fmt.Sprintf(
 				"user_id or device_id mismatch: users: %s - %s, devices: %s - %s",
-				gotUserID, key.UserID, gotDeviceID, key.DeviceID,
+				req.UserID, key.UserID, req.DeviceID, key.DeviceID,
 			),
 		})
 	}
@@ -482,9 +470,11 @@ func (a *KeyInternalAPI) uploadLocalDeviceKeys(ctx context.Context, req *api.Per
 	existingKeys := make([]api.DeviceMessage, len(keysToStore))
 	for i := range keysToStore {
 		existingKeys[i] = api.DeviceMessage{
-			DeviceKeys: api.DeviceKeys{
-				UserID:   keysToStore[i].UserID,
-				DeviceID: keysToStore[i].DeviceID,
+			DeviceKeys: &gomatrixserverlib.DeviceKeys{
+				RespUserDeviceKeys: gomatrixserverlib.RespUserDeviceKeys{
+					UserID:   keysToStore[i].UserID,
+					DeviceID: keysToStore[i].DeviceID,
+				},
 			},
 		}
 	}
@@ -574,9 +564,18 @@ func emitDeviceKeyChanges(producer KeyChangeProducer, existing, new []api.Device
 	for _, newKey := range new {
 		exists := false
 		for _, existingKey := range existing {
+			newJSON, err := json.Marshal(newKey)
+			if err != nil {
+				return fmt.Errorf("json.Marshal(newKey): %w", err)
+			}
+			existingJSON, err := json.Marshal(existingKey)
+			if err != nil {
+				return fmt.Errorf("json.Marshal(existingKey): %w", err)
+			}
+
 			// Do not treat the absence of keys as equal, or else we will not emit key changes
 			// when users delete devices which never had a key to begin with as both KeyJSONs are nil.
-			if bytes.Equal(existingKey.KeyJSON, newKey.KeyJSON) && len(existingKey.KeyJSON) > 0 {
+			if bytes.Equal(existingJSON, newJSON) && len(existingJSON) > 0 {
 				exists = true
 				break
 			}
@@ -594,7 +593,7 @@ func appendDisplayNames(existing, new []api.DeviceMessage) []api.DeviceMessage {
 			if existingDevice.DeviceID != newDevice.DeviceID {
 				continue
 			}
-			existingDevice.DisplayName = newDevice.DisplayName
+			existingDevice.Unsigned["device_display_name"] = newDevice.DisplayName()
 			existing[i] = existingDevice
 		}
 	}

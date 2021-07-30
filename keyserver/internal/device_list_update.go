@@ -16,7 +16,6 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"sync"
@@ -215,23 +214,15 @@ func (u *DeviceListUpdater) update(ctx context.Context, event gomatrixserverlib.
 		"prev_ids":       event.PrevID,
 		"display_name":   event.DeviceDisplayName,
 		"deleted":        event.Deleted,
+		"keys":           event.Keys,
 	}).Info("DeviceListUpdater.Update")
 
 	// if we haven't missed anything update the database and notify users
 	if exists {
-		k := event.Keys
-		if event.Deleted {
-			k = nil
-		}
 		keys := []api.DeviceMessage{
 			{
-				DeviceKeys: api.DeviceKeys{
-					DeviceID:    event.DeviceID,
-					DisplayName: event.DeviceDisplayName,
-					KeyJSON:     k,
-					UserID:      event.UserID,
-				},
-				StreamID: event.StreamID,
+				DeviceKeys: event.Keys,
+				StreamID:   event.StreamID,
 			},
 		}
 		err = u.db.StoreRemoteDeviceKeys(ctx, keys, nil)
@@ -388,24 +379,15 @@ func (u *DeviceListUpdater) updateDeviceList(res *gomatrixserverlib.RespUserDevi
 	keys := make([]api.DeviceMessage, len(res.Devices))
 	existingKeys := make([]api.DeviceMessage, len(res.Devices))
 	for i, device := range res.Devices {
-		keyJSON, err := json.Marshal(device.Keys)
-		if err != nil {
-			util.GetLogger(ctx).WithField("keys", device.Keys).Error("failed to marshal keys, skipping device")
-			continue
-		}
 		keys[i] = api.DeviceMessage{
 			StreamID: res.StreamID,
-			DeviceKeys: api.DeviceKeys{
-				DeviceID:    device.DeviceID,
-				DisplayName: device.DisplayName,
-				UserID:      res.UserID,
-				KeyJSON:     keyJSON,
+			DeviceKeys: &gomatrixserverlib.DeviceKeys{
+				RespUserDeviceKeys: device.Keys,
 			},
 		}
 		existingKeys[i] = api.DeviceMessage{
-			DeviceKeys: api.DeviceKeys{
-				UserID:   res.UserID,
-				DeviceID: device.DeviceID,
+			DeviceKeys: &gomatrixserverlib.DeviceKeys{
+				RespUserDeviceKeys: device.Keys,
 			},
 		}
 	}

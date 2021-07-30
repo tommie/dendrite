@@ -150,12 +150,13 @@ func (a *UserInternalAPI) PerformDeviceDeletion(ctx context.Context, req *api.Pe
 }
 
 func (a *UserInternalAPI) deviceListUpdate(userID string, deviceIDs []string) error {
-	deviceKeys := make([]keyapi.DeviceKeys, len(deviceIDs))
+	deviceKeys := make([]gomatrixserverlib.DeviceKeys, len(deviceIDs))
 	for i, did := range deviceIDs {
-		deviceKeys[i] = keyapi.DeviceKeys{
-			UserID:   userID,
-			DeviceID: did,
-			KeyJSON:  nil,
+		deviceKeys[i] = gomatrixserverlib.DeviceKeys{
+			RespUserDeviceKeys: gomatrixserverlib.RespUserDeviceKeys{
+				UserID:   userID,
+				DeviceID: did,
+			},
 		}
 	}
 
@@ -219,12 +220,15 @@ func (a *UserInternalAPI) PerformDeviceUpdate(ctx context.Context, req *api.Perf
 		var uploadRes keyapi.PerformUploadKeysResponse
 		a.KeyAPI.PerformUploadKeys(context.Background(), &keyapi.PerformUploadKeysRequest{
 			UserID: req.RequestingUserID,
-			DeviceKeys: []keyapi.DeviceKeys{
+			DeviceKeys: []gomatrixserverlib.DeviceKeys{
 				{
-					DeviceID:    dev.ID,
-					DisplayName: *req.DisplayName,
-					KeyJSON:     nil,
-					UserID:      dev.UserID,
+					RespUserDeviceKeys: gomatrixserverlib.RespUserDeviceKeys{
+						DeviceID: dev.ID,
+						UserID:   dev.UserID,
+					},
+					Unsigned: map[string]interface{}{
+						"device_display_name": *req.DisplayName,
+					},
 				},
 			},
 			OnlyDisplayNameUpdates: true,

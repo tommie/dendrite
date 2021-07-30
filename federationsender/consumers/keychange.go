@@ -119,11 +119,11 @@ func (t *KeyChangeConsumer) onMessage(msg *sarama.ConsumerMessage) error {
 	event := gomatrixserverlib.DeviceListUpdateEvent{
 		UserID:            m.UserID,
 		DeviceID:          m.DeviceID,
-		DeviceDisplayName: m.DisplayName,
+		DeviceDisplayName: m.DisplayName(),
 		StreamID:          m.StreamID,
 		PrevID:            prevID(m.StreamID),
-		Deleted:           len(m.KeyJSON) == 0,
-		Keys:              m.KeyJSON,
+		Deleted:           m.DeviceKeys == nil,
+		Keys:              m.DeviceKeys,
 	}
 	if edu.Content, err = json.Marshal(event); err != nil {
 		return err

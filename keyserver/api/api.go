@@ -49,30 +49,9 @@ func (k *KeyError) Error() string {
 
 // DeviceMessage represents the message produced into Kafka by the key server.
 type DeviceMessage struct {
-	DeviceKeys
+	*gomatrixserverlib.DeviceKeys
 	// A monotonically increasing number which represents device changes for this user.
 	StreamID int
-}
-
-// DeviceKeys represents a set of device keys for a single device
-// https://matrix.org/docs/spec/client_server/r0.6.1#post-matrix-client-r0-keys-upload
-type DeviceKeys struct {
-	// The user who owns this device
-	UserID string
-	// The device ID of this device
-	DeviceID string
-	// The device display name
-	DisplayName string
-	// The raw device key JSON
-	KeyJSON []byte
-}
-
-// WithStreamID returns a copy of this device message with the given stream ID
-func (k *DeviceKeys) WithStreamID(streamID int) DeviceMessage {
-	return DeviceMessage{
-		DeviceKeys: *k,
-		StreamID:   streamID,
-	}
 }
 
 // OneTimeKeys represents a set of one-time keys for a single device
@@ -110,7 +89,7 @@ type OneTimeKeysCount struct {
 type PerformUploadKeysRequest struct {
 	UserID      string // Required - User performing the request
 	DeviceID    string // Optional - Device performing the request, for fetching OTK count
-	DeviceKeys  []DeviceKeys
+	DeviceKeys  []gomatrixserverlib.DeviceKeys
 	OneTimeKeys []OneTimeKeys
 	// OnlyDisplayNameUpdates should be `true` if ALL the DeviceKeys are present to update
 	// the display name for their respective device, and NOT to modify the keys. The key
@@ -161,7 +140,7 @@ type QueryKeysResponse struct {
 	// Map of remote server domain to error JSON
 	Failures map[string]interface{}
 	// Map of user_id to device_id to device_key
-	DeviceKeys map[string]map[string]json.RawMessage
+	DeviceKeys map[string]map[string]gomatrixserverlib.DeviceKeys
 	// Set if there was a fatal error processing this query
 	Error *KeyError
 }

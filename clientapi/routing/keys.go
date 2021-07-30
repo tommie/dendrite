@@ -23,12 +23,13 @@ import (
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/keyserver/api"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
+	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
 )
 
 type uploadKeysRequest struct {
-	DeviceKeys  json.RawMessage            `json:"device_keys"`
-	OneTimeKeys map[string]json.RawMessage `json:"one_time_keys"`
+	DeviceKeys  gomatrixserverlib.DeviceKeys `json:"device_keys"`
+	OneTimeKeys map[string]json.RawMessage   `json:"one_time_keys"`
 }
 
 func UploadKeys(req *http.Request, keyAPI api.KeyInternalAPI, device *userapi.Device) util.JSONResponse {
@@ -42,14 +43,8 @@ func UploadKeys(req *http.Request, keyAPI api.KeyInternalAPI, device *userapi.De
 		DeviceID: device.ID,
 		UserID:   device.UserID,
 	}
-	if r.DeviceKeys != nil {
-		uploadReq.DeviceKeys = []api.DeviceKeys{
-			{
-				DeviceID: device.ID,
-				UserID:   device.UserID,
-				KeyJSON:  r.DeviceKeys,
-			},
-		}
+	if r.DeviceKeys.DeviceID != "" {
+		uploadReq.DeviceKeys = append(uploadReq.DeviceKeys, r.DeviceKeys)
 	}
 	if r.OneTimeKeys != nil {
 		uploadReq.OneTimeKeys = []api.OneTimeKeys{

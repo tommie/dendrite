@@ -12,6 +12,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/matrix-org/dendrite/keyserver/api"
 	"github.com/matrix-org/dendrite/setup/config"
+	"github.com/matrix-org/gomatrixserverlib"
 )
 
 var ctx = context.Background()
@@ -105,28 +106,34 @@ func TestDeviceKeysStreamIDGeneration(t *testing.T) {
 	bob := "@bob:TestDeviceKeysStreamIDGeneration"
 	msgs := []api.DeviceMessage{
 		{
-			DeviceKeys: api.DeviceKeys{
-				DeviceID: "AAA",
-				UserID:   alice,
-				KeyJSON:  []byte(`{"key":"v1"}`),
+			DeviceKeys: &gomatrixserverlib.DeviceKeys{
+				RespUserDeviceKeys: gomatrixserverlib.RespUserDeviceKeys{
+					DeviceID:   "AAA",
+					UserID:     alice,
+					Algorithms: []string{"v1"},
+				},
 			},
 			// StreamID: 1
 		},
 		{
-			DeviceKeys: api.DeviceKeys{
-				DeviceID: "AAA",
-				UserID:   bob,
-				KeyJSON:  []byte(`{"key":"v1"}`),
+			DeviceKeys: &gomatrixserverlib.DeviceKeys{
+				RespUserDeviceKeys: gomatrixserverlib.RespUserDeviceKeys{
+					DeviceID:   "AAA",
+					UserID:     bob,
+					Algorithms: []string{"v1"},
+				},
 			},
 			// StreamID: 1 as this is a different user
 		},
 		{
-			DeviceKeys: api.DeviceKeys{
-				DeviceID: "another_device",
-				UserID:   alice,
-				KeyJSON:  []byte(`{"key":"v1"}`),
+			DeviceKeys: &gomatrixserverlib.DeviceKeys{
+				RespUserDeviceKeys: gomatrixserverlib.RespUserDeviceKeys{
+					DeviceID:   "another_device",
+					UserID:     alice,
+					Algorithms: []string{"v2"},
+				},
 			},
-			// StreamID: 2 as this is a 2nd device key
+			// StreamID: 2 as this is a 2nd key
 		},
 	}
 	MustNotError(t, db.StoreLocalDeviceKeys(ctx, msgs))
@@ -143,10 +150,12 @@ func TestDeviceKeysStreamIDGeneration(t *testing.T) {
 	// updating a device sets the next stream ID for that user
 	msgs = []api.DeviceMessage{
 		{
-			DeviceKeys: api.DeviceKeys{
-				DeviceID: "AAA",
-				UserID:   alice,
-				KeyJSON:  []byte(`{"key":"v2"}`),
+			DeviceKeys: &gomatrixserverlib.DeviceKeys{
+				RespUserDeviceKeys: gomatrixserverlib.RespUserDeviceKeys{
+					DeviceID:   "AAA",
+					UserID:     alice,
+					Algorithms: []string{"v3"},
+				},
 			},
 			// StreamID: 3
 		},

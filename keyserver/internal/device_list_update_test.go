@@ -17,6 +17,7 @@ package internal
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -128,10 +129,19 @@ func TestUpdateHavePrevID(t *testing.T) {
 		DeviceDisplayName: "Foo Bar",
 		Deleted:           false,
 		DeviceID:          "FOO",
-		Keys:              []byte(`{"key":"value"}`),
-		PrevID:            []int{0},
-		StreamID:          1,
-		UserID:            "@alice:localhost",
+		Keys: &gomatrixserverlib.DeviceKeys{
+			RespUserDeviceKeys: gomatrixserverlib.RespUserDeviceKeys{
+				DeviceID:   "FOO",
+				UserID:     "@alice:localhost",
+				Algorithms: []string{"TEST"},
+				Keys: map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes{
+					"key": {1, 2, 3, 4, 5, 6},
+				},
+			},
+		},
+		PrevID:   []int{0},
+		StreamID: 1,
+		UserID:   "@alice:localhost",
 	}
 	err := updater.Update(ctx, event)
 	if err != nil {
@@ -139,11 +149,15 @@ func TestUpdateHavePrevID(t *testing.T) {
 	}
 	want := api.DeviceMessage{
 		StreamID: event.StreamID,
-		DeviceKeys: api.DeviceKeys{
-			DeviceID:    event.DeviceID,
-			DisplayName: event.DeviceDisplayName,
-			KeyJSON:     event.Keys,
-			UserID:      event.UserID,
+		DeviceKeys: &gomatrixserverlib.DeviceKeys{
+			RespUserDeviceKeys: gomatrixserverlib.RespUserDeviceKeys{
+				DeviceID:   "FOO",
+				UserID:     "@alice:localhost",
+				Algorithms: []string{"TEST"},
+				Keys: map[gomatrixserverlib.KeyID]gomatrixserverlib.Base64Bytes{
+					"key": {1, 2, 3, 4, 5, 6},
+				},
+			},
 		},
 	}
 	if !reflect.DeepEqual(producer.events, []api.DeviceMessage{want}) {
@@ -201,11 +215,16 @@ func TestUpdateNoPrevID(t *testing.T) {
 		DeviceDisplayName: "Mobile Phone",
 		Deleted:           false,
 		DeviceID:          "another_device_id",
-		Keys:              []byte(`{"key":"value"}`),
+		Keys:              &gomatrixserverlib.DeviceKeys{},
 		PrevID:            []int{3},
 		StreamID:          4,
 		UserID:            remoteUserID,
 	}
+	if err := json.Unmarshal([]byte(keyJSON), event.Keys); err != nil {
+		t.Fatal(err)
+	}
+	event.DeviceID = "another_device"
+	event.Keys.DeviceID = "another_device"
 	err := updater.Update(ctx, event)
 	if err != nil {
 		t.Fatalf("Update returned an error: %s", err)
@@ -215,24 +234,25 @@ func TestUpdateNoPrevID(t *testing.T) {
 	// wait a bit for db to be updated...
 	time.Sleep(100 * time.Millisecond)
 	want := api.DeviceMessage{
-		StreamID: 5,
-		DeviceKeys: api.DeviceKeys{
-			DeviceID:    "JLAFKJWSCS",
-			DisplayName: "Mobile Phone",
-			UserID:      remoteUserID,
-			KeyJSON:     []byte(keyJSON),
-		},
+		StreamID:   5,
+		DeviceKeys: &gomatrixserverlib.DeviceKeys{},
+	}
+	if err := json.Unmarshal([]byte(keyJSON), want.DeviceKeys); err != nil {
+		t.Fatal(err)
+	}
+	want.Unsigned = map[string]interface{}{
+		"device_display_name": "Mobile Phone",
 	}
 	// Now we should have a fresh list and the keys and emitted something
 	if db.staleUsers[event.UserID] {
 		t.Errorf("%s still marked as stale", event.UserID)
 	}
-	if !reflect.DeepEqual(producer.events, []api.DeviceMessage{want}) {
-		t.Logf("len got %d len want %d", len(producer.events[0].KeyJSON), len(want.KeyJSON))
+	if len(producer.events) != 1 {
+		t.Logf("len got %+v len want 1", len(producer.events))
 		t.Errorf("Update didn't produce correct event, got %v want %v", producer.events, want)
 	}
-	if !reflect.DeepEqual(db.storedKeys, []api.DeviceMessage{want}) {
-		t.Errorf("DB didn't store correct event, got %v want %v", db.storedKeys, want)
+	if !reflect.DeepEqual(*db.storedKeys[0].DeviceKeys, *want.DeviceKeys) {
+		t.Errorf("DB didn't store correct event\ngot  %+v\nwant %+v", *db.storedKeys[0].DeviceKeys, *want.DeviceKeys)
 	}
 
 }
