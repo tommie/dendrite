@@ -284,21 +284,27 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 		// work out if our cross-signing request for this user was
 		// satisfied, if not add them to the list of things to fetch
 		if _, ok := res.MasterKeys[userID]; !ok {
+			util.GetLogger(ctx).Infof("No cross-signing master keys for %s found", userID)
 			if _, ok := domainToDeviceKeys[domain]; !ok {
 				domainToDeviceKeys[domain] = make(map[string][]string)
 			}
 			if _, ok := domainToDeviceKeys[domain][userID]; !ok {
 				util.GetLogger(ctx).Infof("Request cross-signing keys from %s for %s", domain, userID)
 				domainToDeviceKeys[domain][userID] = []string{}
+			} else {
+				util.GetLogger(ctx).Infof("Already requesting keys from %s for %s", domain, userID)
 			}
 		}
 		if _, ok := res.SelfSigningKeys[userID]; !ok {
+			util.GetLogger(ctx).Infof("No cross-signing self-signing keys for %s found", userID)
 			if _, ok := domainToDeviceKeys[domain]; !ok {
 				domainToDeviceKeys[domain] = make(map[string][]string)
 			}
 			if _, ok := domainToDeviceKeys[domain][userID]; !ok {
 				util.GetLogger(ctx).Infof("Request cross-signing keys from %s for %s", domain, userID)
 				domainToDeviceKeys[domain][userID] = []string{}
+			} else {
+				util.GetLogger(ctx).Infof("Already requesting keys from %s for %s", domain, userID)
 			}
 		}
 	}
