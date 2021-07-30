@@ -158,13 +158,16 @@ func TestUpdateHavePrevID(t *testing.T) {
 					"key": {1, 2, 3, 4, 5, 6},
 				},
 			},
+			Unsigned: map[string]interface{}{
+				"device_display_name": "Foo Bar",
+			},
 		},
 	}
 	if !reflect.DeepEqual(producer.events, []api.DeviceMessage{want}) {
 		t.Errorf("Update didn't produce correct event, got %v want %v", producer.events, want)
 	}
-	if !reflect.DeepEqual(db.storedKeys, []api.DeviceMessage{want}) {
-		t.Errorf("DB didn't store correct event, got %v want %v", db.storedKeys, want)
+	if !reflect.DeepEqual(*db.storedKeys[0].DeviceKeys, *want.DeviceKeys) {
+		t.Errorf("DB didn't store correct event\ngot  %+v\nwant %+v", *db.storedKeys[0].DeviceKeys, *want.DeviceKeys)
 	}
 	if db.staleUsers[event.UserID] {
 		t.Errorf("%s incorrectly marked as stale", event.UserID)
@@ -223,8 +226,6 @@ func TestUpdateNoPrevID(t *testing.T) {
 	if err := json.Unmarshal([]byte(keyJSON), event.Keys); err != nil {
 		t.Fatal(err)
 	}
-	event.DeviceID = "another_device"
-	event.Keys.DeviceID = "another_device"
 	err := updater.Update(ctx, event)
 	if err != nil {
 		t.Fatalf("Update returned an error: %s", err)

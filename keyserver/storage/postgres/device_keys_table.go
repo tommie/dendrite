@@ -158,7 +158,7 @@ func (s *deviceKeysStatements) InsertDeviceKeys(ctx context.Context, txn *sql.Tx
 	for _, key := range keys {
 		now := time.Now().Unix()
 		_, err := sqlutil.TxStmt(txn, s.upsertDeviceKeysStmt).ExecContext(
-			ctx, key.UserID, key.DeviceID, now, key.DeviceKeys, key.StreamID, key.DisplayName,
+			ctx, key.UserID, key.DeviceID, now, key.DeviceKeys, key.StreamID, key.DisplayName(),
 		)
 		if err != nil {
 			return err

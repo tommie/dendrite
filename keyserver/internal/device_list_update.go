@@ -214,8 +214,14 @@ func (u *DeviceListUpdater) update(ctx context.Context, event gomatrixserverlib.
 		"prev_ids":       event.PrevID,
 		"display_name":   event.DeviceDisplayName,
 		"deleted":        event.Deleted,
-		"keys":           event.Keys,
 	}).Info("DeviceListUpdater.Update")
+
+	event.Keys.Unsigned = map[string]interface{}{
+		"device_display_name": event.DeviceDisplayName,
+	}
+
+	fmt.Println("Display name:", event.DeviceDisplayName)
+	fmt.Println("Key display unsigned:", event.Keys.Unsigned)
 
 	// if we haven't missed anything update the database and notify users
 	if exists {
@@ -385,6 +391,14 @@ func (u *DeviceListUpdater) updateDeviceList(res *gomatrixserverlib.RespUserDevi
 				RespUserDeviceKeys: device.Keys,
 			},
 		}
+		if device.DeviceID != "" {
+			keys[i].DeviceKeys.DeviceID = device.DeviceID
+		}
+		if device.DisplayName != "" {
+			keys[i].DeviceKeys.Unsigned = map[string]interface{}{
+				"device_display_name": device.DisplayName,
+			}
+		}
 		existingKeys[i] = api.DeviceMessage{
 			DeviceKeys: &gomatrixserverlib.DeviceKeys{
 				RespUserDeviceKeys: device.Keys,
@@ -398,6 +412,9 @@ func (u *DeviceListUpdater) updateDeviceList(res *gomatrixserverlib.RespUserDevi
 			"failed to query device keys json for calculating diffs",
 		)
 	}
+
+	fmt.Println("EXISTING KEYS:", existingKeys[0].Unsigned)
+	fmt.Println("NEW KEYS:", keys[0].Unsigned)
 
 	err := u.db.StoreRemoteDeviceKeys(ctx, keys, []string{res.UserID})
 	if err != nil {
