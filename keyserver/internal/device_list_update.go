@@ -391,9 +391,6 @@ func (u *DeviceListUpdater) updateDeviceList(res *gomatrixserverlib.RespUserDevi
 				RespUserDeviceKeys: device.Keys,
 			},
 		}
-		if device.DeviceID != "" {
-			keys[i].DeviceKeys.DeviceID = device.DeviceID
-		}
 		if device.DisplayName != "" {
 			keys[i].DeviceKeys.Unsigned = map[string]interface{}{
 				"device_display_name": device.DisplayName,
@@ -412,10 +409,6 @@ func (u *DeviceListUpdater) updateDeviceList(res *gomatrixserverlib.RespUserDevi
 			"failed to query device keys json for calculating diffs",
 		)
 	}
-
-	fmt.Println("EXISTING KEYS:", existingKeys[0].Unsigned)
-	fmt.Println("NEW KEYS:", keys[0].Unsigned)
-
 	err := u.db.StoreRemoteDeviceKeys(ctx, keys, []string{res.UserID})
 	if err != nil {
 		return fmt.Errorf("failed to store remote device keys: %w", err)

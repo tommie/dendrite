@@ -593,8 +593,9 @@ func appendDisplayNames(existing, new []api.DeviceMessage) []api.DeviceMessage {
 			if existingDevice.DeviceID != newDevice.DeviceID {
 				continue
 			}
-			existingDevice.Unsigned["device_display_name"] = newDevice.DisplayName()
-			existing[i] = existingDevice
+			existing[i].Unsigned = map[string]interface{}{
+				"device_display_name": newDevice.DisplayName(),
+			}
 		}
 	}
 	return existing
