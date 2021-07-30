@@ -447,9 +447,6 @@ func (a *KeyInternalAPI) queryRemoteKeysOnServer(
 			continue
 		}
 	}
-	if len(devKeys) == 0 {
-		return
-	}
 	queryKeysResp, err := a.FedClient.QueryKeys(fedCtx, gomatrixserverlib.ServerName(serverName), devKeys)
 	if err == nil {
 		resultCh <- &queryKeysResp
