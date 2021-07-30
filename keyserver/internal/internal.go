@@ -231,6 +231,7 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 
 	// make a map from domain to device keys
 	domainToDeviceKeys := make(map[string]map[string][]string)
+	domainToCrossSigningKeys := make(map[string]map[string]struct{})
 	for userID, deviceIDs := range req.UserToDevices {
 		_, serverName, err := gomatrixserverlib.SplitID('@', userID)
 		if err != nil {
@@ -284,35 +285,39 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 		// work out if our cross-signing request for this user was
 		// satisfied, if not add them to the list of things to fetch
 		if _, ok := res.MasterKeys[userID]; !ok {
-			util.GetLogger(ctx).Infof("No cross-signing master keys for %s found", userID)
-			if _, ok := domainToDeviceKeys[domain]; !ok {
-				domainToDeviceKeys[domain] = make(map[string][]string)
+			if _, ok := domainToCrossSigningKeys[domain]; !ok {
+				domainToCrossSigningKeys[domain] = make(map[string]struct{})
 			}
-			if _, ok := domainToDeviceKeys[domain][userID]; !ok {
-				util.GetLogger(ctx).Infof("Request cross-signing keys from %s for %s", domain, userID)
-				domainToDeviceKeys[domain][userID] = []string{}
-			} else {
-				util.GetLogger(ctx).Infof("Already requesting keys from %s for %s", domain, userID)
+			if _, ok := domainToCrossSigningKeys[domain][userID]; !ok {
+				domainToCrossSigningKeys[domain][userID] = struct{}{}
 			}
 		}
 		if _, ok := res.SelfSigningKeys[userID]; !ok {
-			util.GetLogger(ctx).Infof("No cross-signing self-signing keys for %s found", userID)
-			if _, ok := domainToDeviceKeys[domain]; !ok {
-				domainToDeviceKeys[domain] = make(map[string][]string)
+			if _, ok := domainToCrossSigningKeys[domain]; !ok {
+				domainToCrossSigningKeys[domain] = make(map[string]struct{})
 			}
-			if _, ok := domainToDeviceKeys[domain][userID]; !ok {
-				util.GetLogger(ctx).Infof("Request cross-signing keys from %s for %s", domain, userID)
-				domainToDeviceKeys[domain][userID] = []string{}
-			} else {
-				util.GetLogger(ctx).Infof("Already requesting keys from %s for %s", domain, userID)
+			if _, ok := domainToCrossSigningKeys[domain][userID]; !ok {
+				domainToCrossSigningKeys[domain][userID] = struct{}{}
 			}
 		}
 	}
 
 	// attempt to satisfy key queries from the local database first as we should get device updates pushed to us
 	domainToDeviceKeys = a.remoteKeysFromDatabase(ctx, res, domainToDeviceKeys)
-	if len(domainToDeviceKeys) == 0 {
+	if len(domainToDeviceKeys) == 0 && len(domainToCrossSigningKeys) == 0 {
 		return // nothing to query
+	}
+
+	// add in any cross-signing requests that need to be made to the list
+	for domain, forDomain := range domainToCrossSigningKeys {
+		for userID := range forDomain {
+			if _, ok := domainToDeviceKeys[domain]; !ok {
+				domainToDeviceKeys[domain] = make(map[string][]string)
+			}
+			if _, ok := domainToDeviceKeys[domain][userID]; !ok {
+				domainToDeviceKeys[domain][userID] = []string{}
+			}
+		}
 	}
 
 	// perform key queries for remote devices
