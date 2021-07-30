@@ -228,8 +228,7 @@ func (a *KeyInternalAPI) QueryKeys(ctx context.Context, req *api.QueryKeysReques
 
 	// get cross-signing keys from the database
 	if err := a.crossSigningKeys(ctx, req, res); err != nil {
-		// TODO: handle this
-		util.GetLogger(ctx).WithError(err).Error("Failed to retrieve cross-signing keys")
+		util.GetLogger(ctx).WithError(err).Error("Failed to retrieve cross-signing keys from database")
 	}
 
 	// make a map from domain to device keys
@@ -354,6 +353,23 @@ func (a *KeyInternalAPI) queryRemoteKeys(
 				res.DeviceKeys[userID][deviceID] = keyJSON
 			}
 		}
+
+		for userID, body := range result.MasterKeys {
+			switch b := body.CrossSigningBody.(type) {
+			case *gomatrixserverlib.CrossSigningForKey:
+				res.MasterKeys[userID] = *b
+			}
+		}
+
+		for userID, body := range result.SelfSigningKeys {
+			switch b := body.CrossSigningBody.(type) {
+			case *gomatrixserverlib.CrossSigningForKey:
+				res.SelfSigningKeys[userID] = *b
+			}
+		}
+
+		// TODO: do we want to persist these somewhere now
+		// that we have fetched them?
 	}
 }
 
