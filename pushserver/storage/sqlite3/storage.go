@@ -25,7 +25,13 @@ func Open(dbProperties *config.DatabaseOptions) (*Database, error) {
 		return nil, err
 	}
 
-	// Create the tables.
+	if err = shared.CreateMembershipTable(d.DB); err != nil {
+		return nil, err
+	}
+
+	if err = d.Database.Prepare(); err != nil {
+		return nil, err
+	}
 
 	return &d, nil
 }

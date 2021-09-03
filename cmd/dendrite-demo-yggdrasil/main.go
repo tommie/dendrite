@@ -108,6 +108,8 @@ func main() {
 	userAPI := userapi.NewInternalAPI(accountDB, &cfg.UserAPI, nil, keyAPI)
 	keyAPI.SetUserAPI(userAPI)
 
+	psAPI := pushserver.NewInternalAPI(base)
+
 	rsComponent := roomserver.NewInternalAPI(
 		base, keyRing,
 	)

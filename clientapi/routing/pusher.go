@@ -20,7 +20,7 @@ import (
 
 	"github.com/matrix-org/dendrite/clientapi/httputil"
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
-	pushserver "github.com/matrix-org/dendrite/pushserver/api"
+	pushserverapi "github.com/matrix-org/dendrite/pushserver/api"
 	"github.com/matrix-org/dendrite/userapi/api"
 	userapi "github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/util"
@@ -46,10 +46,10 @@ type pushersJSON struct {
 // GetPushersByLocalpart handles /_matrix/client/r0/pushers
 func GetPushersByLocalpart(
 	req *http.Request, device *api.Device,
-	userAPI userapi.UserInternalAPI, pushserverAPI pushserver.PushserverInternalAPI,
+	userAPI userapi.UserInternalAPI, psAPI pushserverapi.PushserverInternalAPI,
 ) util.JSONResponse {
-	var queryRes userapi.QueryPushersResponse
-	err := userAPI.QueryPushers(req.Context(), &userapi.QueryPushersRequest{
+	var queryRes pushserverapi.QueryPushersResponse
+	err := psAPI.QueryPushers(req.Context(), &pushserverapi.QueryPushersRequest{
 		UserID: device.UserID,
 	}, &queryRes)
 	if err != nil {
@@ -90,17 +90,17 @@ func GetPushersByLocalpart(
 // The behaviour of this endpoint varies depending on the values in the JSON body.
 func SetPusherByLocalpart(
 	req *http.Request, device *api.Device,
-	userAPI userapi.UserInternalAPI, pushserverAPI pushserver.PushserverInternalAPI,
+	userAPI userapi.UserInternalAPI, psAPI pushserverapi.PushserverInternalAPI,
 ) util.JSONResponse {
-	var deletionRes userapi.PerformPusherDeletionResponse
+	var deletionRes pushserverapi.PerformPusherDeletionResponse
 	body := pusherJSON{}
 
 	if resErr := httputil.UnmarshalJSONRequest(req, &body); resErr != nil {
 		return *resErr
 	}
 
-	var queryRes userapi.QueryPushersResponse
-	err := userAPI.QueryPushers(req.Context(), &userapi.QueryPushersRequest{
+	var queryRes pushserverapi.QueryPushersResponse
+	err := psAPI.QueryPushers(req.Context(), &pushserverapi.QueryPushersRequest{
 		UserID: device.UserID,
 	}, &queryRes)
 	if err != nil {
@@ -108,7 +108,7 @@ func SetPusherByLocalpart(
 		return jsonerror.InternalServerError()
 	}
 
-	var targetPusher *userapi.Pusher
+	var targetPusher *pushserverapi.Pusher
 	for _, pusher := range queryRes.Pushers {
 		if pusher.PushKey == body.PushKey {
 			targetPusher = &pusher
@@ -119,8 +119,8 @@ func SetPusherByLocalpart(
 	// No Pusher exists with the given PushKey for current user
 	if targetPusher == nil {
 		// Create a new Pusher for current user
-		var pusherResponse userapi.PerformPusherCreationResponse
-		err = userAPI.PerformPusherCreation(req.Context(), &userapi.PerformPusherCreationRequest{
+		var pusherResponse pushserverapi.PerformPusherCreationResponse
+		err = psAPI.PerformPusherCreation(req.Context(), &pushserverapi.PerformPusherCreationRequest{
 			Device:            device,
 			PushKey:           body.PushKey,
 			Kind:              body.Kind,
@@ -145,10 +145,10 @@ func SetPusherByLocalpart(
 		}
 
 		// if kind is null, delete the pusher! 🗑
-		err = userAPI.PerformPusherDeletion(req.Context(), &userapi.PerformPusherDeletionRequest{
+		err = psAPI.PerformPusherDeletion(req.Context(), &pushserverapi.PerformPusherDeletionRequest{
 			AppID:   targetPusher.AppID,
 			PushKey: targetPusher.PushKey,
-			UserID:  targetPusher.UserID,
+			UserID:  device.UserID,
 		}, &deletionRes)
 
 		if err != nil {
@@ -156,8 +156,8 @@ func SetPusherByLocalpart(
 			return jsonerror.InternalServerError()
 		}
 	} else {
-		var pusherResponse userapi.PerformPusherUpdateResponse
-		err = userAPI.PerformPusherUpdate(req.Context(), &userapi.PerformPusherUpdateRequest{
+		var pusherResponse pushserverapi.PerformPusherUpdateResponse
+		err = psAPI.PerformPusherUpdate(req.Context(), &pushserverapi.PerformPusherUpdateRequest{
 			PushKey:           body.PushKey,
 			Kind:              body.Kind,
 			AppID:             body.AppID,

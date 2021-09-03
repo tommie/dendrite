@@ -23,7 +23,6 @@ import (
 	"github.com/matrix-org/dendrite/userapi/inthttp"
 	"github.com/matrix-org/dendrite/userapi/storage/accounts"
 	"github.com/matrix-org/dendrite/userapi/storage/devices"
-	"github.com/matrix-org/dendrite/userapi/storage/pushers"
 	"github.com/sirupsen/logrus"
 )
 
@@ -43,15 +42,9 @@ func NewInternalAPI(
 		logrus.WithError(err).Panicf("failed to connect to device db")
 	}
 
-	pusherDB, err := pushers.NewDatabase(&cfg.PusherDatabase, cfg.Matrix.ServerName)
-	if err != nil {
-		logrus.WithError(err).Panicf("failed to connect to pusher db")
-	}
-
 	return &internal.UserInternalAPI{
 		AccountDB:   accountDB,
 		DeviceDB:    deviceDB,
-		PusherDB:    pusherDB,
 		ServerName:  cfg.Matrix.ServerName,
 		AppServices: appServices,
 		KeyAPI:      keyAPI,

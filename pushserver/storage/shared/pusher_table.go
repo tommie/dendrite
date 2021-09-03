@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package postgres
+package shared
 
 import (
 	"context"
 	"database/sql"
 
-	"github.com/matrix-org/dendrite/clientapi/userutil"
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/pushserver/api"
+	"github.com/matrix-org/dendrite/pushserver/storage/tables"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/sirupsen/logrus"
 )
@@ -84,35 +84,27 @@ type pushersStatements struct {
 	serverName                   gomatrixserverlib.ServerName
 }
 
-func (s *pushersStatements) execSchema(db *sql.DB) error {
+func CreateMembershipTable(db *sql.DB) error {
 	_, err := db.Exec(pushersSchema)
 	return err
 }
 
-func (s *pushersStatements) prepare(db *sql.DB, server gomatrixserverlib.ServerName) (err error) {
-	if s.insertPusherStmt, err = db.Prepare(insertPusherSQL); err != nil {
-		return
-	}
-	if s.selectPushersByLocalpartStmt, err = db.Prepare(selectPushersByLocalpartSQL); err != nil {
-		return
-	}
-	if s.selectPusherByPushkeyStmt, err = db.Prepare(selectPusherByPushkeySQL); err != nil {
-		return
-	}
-	if s.updatePusherStmt, err = db.Prepare(updatePusherSQL); err != nil {
-		return
-	}
-	if s.deletePusherStmt, err = db.Prepare(deletePusherSQL); err != nil {
-		return
-	}
-	s.serverName = server
-	return
+func preparePushersTable(db *sql.DB) (tables.Pusher, error) {
+	s := &pushersStatements{}
+
+	return s, sqlutil.StatementList{
+		{&s.insertPusherStmt, insertPusherSQL},
+		{&s.selectPushersByLocalpartStmt, selectPushersByLocalpartSQL},
+		{&s.selectPusherByPushkeyStmt, selectPusherByPushkeySQL},
+		{&s.updatePusherStmt, updatePusherSQL},
+		{&s.deletePusherStmt, deletePusherSQL},
+	}.Prepare(db)
 }
 
 // insertPusher creates a new pusher.
 // Returns an error if the user already has a pusher with the given pusher pushkey.
 // Returns nil error success.
-func (s *pushersStatements) insertPusher(
+func (s *pushersStatements) InsertPusher(
 	ctx context.Context, txn *sql.Tx, session_id int64,
 	pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
 ) error {
@@ -122,7 +114,7 @@ func (s *pushersStatements) insertPusher(
 	return err
 }
 
-func (s *pushersStatements) selectPushersByLocalpart(
+func (s *pushersStatements) SelectPushersByLocalpart(
 	ctx context.Context, txn *sql.Tx, localpart string,
 ) ([]api.Pusher, error) {
 	pushers := []api.Pusher{}
@@ -169,7 +161,6 @@ func (s *pushersStatements) selectPushersByLocalpart(
 			pusher.Data = data.String
 		}
 
-		pusher.UserID = userutil.MakeUserID(localpart, s.serverName)
 		pushers = append(pushers, pusher)
 	}
 
@@ -177,7 +168,7 @@ func (s *pushersStatements) selectPushersByLocalpart(
 	return pushers, rows.Err()
 }
 
-func (s *pushersStatements) selectPusherByPushkey(
+func (s *pushersStatements) SelectPusherByPushkey(
 	ctx context.Context, localpart, pushkey string,
 ) (*api.Pusher, error) {
 	var pusher api.Pusher
@@ -216,13 +207,12 @@ func (s *pushersStatements) selectPusherByPushkey(
 			pusher.Data = data.String
 		}
 
-		pusher.UserID = userutil.MakeUserID(localpart, s.serverName)
 	}
 
 	return &pusher, err
 }
 
-func (s *pushersStatements) updatePusher(
+func (s *pushersStatements) UpdatePusher(
 	ctx context.Context, txn *sql.Tx, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
 ) error {
 	stmt := sqlutil.TxStmt(txn, s.updatePusherStmt)
@@ -231,7 +221,7 @@ func (s *pushersStatements) updatePusher(
 }
 
 // deletePusher removes a single pusher by pushkey and user localpart.
-func (s *pushersStatements) deletePusher(
+func (s *pushersStatements) DeletePusher(
 	ctx context.Context, txn *sql.Tx, appid, pushkey, localpart string,
 ) error {
 	stmt := sqlutil.TxStmt(txn, s.deletePusherStmt)

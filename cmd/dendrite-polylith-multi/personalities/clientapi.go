@@ -35,7 +35,7 @@ func ClientAPI(base *setup.BaseDendrite, cfg *config.Dendrite) {
 
 	clientapi.AddPublicRoutes(
 		base.PublicClientAPIMux, base.SynapseAdminMux, &base.Cfg.ClientAPI, accountDB, federation,
-		rsAPI, eduInputAPI, asQuery, transactions.New(), fsAPI, userAPI, keyAPI, nil,
+		rsAPI, eduInputAPI, asQuery, transactions.New(), fsAPI, userAPI, keyAPI, psAPI, nil,
 		&cfg.MSCs,
 	)
 
