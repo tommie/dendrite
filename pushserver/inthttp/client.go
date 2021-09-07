@@ -16,9 +16,8 @@ type httpPushserverInternalAPI struct {
 }
 
 const (
-	PerformPusherCreationPath = "/userapi/performPusherCreation"
+	PerformPusherSetPath      = "/userapi/performPusherSet"
 	PerformPusherDeletionPath = "/userapi/performPusherDeletion"
-	PerformPusherUpdatePath   = "/userapi/performPusherUpdate"
 	QueryPushersPath          = "/userapi/queryPushers"
 )
 
@@ -37,40 +36,24 @@ func NewPushserverClient(
 	}, nil
 }
 
-func (h *httpPushserverInternalAPI) PerformPusherCreation(
+func (h *httpPushserverInternalAPI) PerformPusherSet(
 	ctx context.Context,
-	request *api.PerformPusherCreationRequest,
-	response *api.PerformPusherCreationResponse,
+	request *api.PerformPusherSetRequest,
+	response struct{},
 ) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "PerformPusherCreation")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "PerformPusherSet")
 	defer span.Finish()
 
-	apiURL := h.roomserverURL + PerformPusherCreationPath
+	apiURL := h.roomserverURL + PerformPusherSetPath
 	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
 }
 
-func (h *httpPushserverInternalAPI) PerformPusherUpdate(
-	ctx context.Context,
-	request *api.PerformPusherUpdateRequest,
-	response *api.PerformPusherUpdateResponse,
-) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "PerformPusherUpdate")
-	defer span.Finish()
-
-	apiURL := h.roomserverURL + PerformPusherUpdatePath
-	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
-}
-
-func (h *httpPushserverInternalAPI) PerformPusherDeletion(
-	ctx context.Context,
-	request *api.PerformPusherDeletionRequest,
-	response *api.PerformPusherDeletionResponse,
-) error {
+func (h *httpPushserverInternalAPI) PerformPusherDeletion(ctx context.Context, req *api.PerformPusherDeletionRequest, res struct{}) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "PerformPusherDeletion")
 	defer span.Finish()
 
-	apiURL := h.roomserverURL + PerformPusherDeletionPath
-	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
+	apiURL := h.roomserverURL + PerformPusherSetPath
+	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, req, res)
 }
 
 func (h *httpPushserverInternalAPI) QueryPushers(ctx context.Context, req *api.QueryPushersRequest, res *api.QueryPushersResponse) error {

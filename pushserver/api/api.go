@@ -2,86 +2,47 @@ package api
 
 import (
 	"context"
-	"encoding/json"
-
-	"github.com/matrix-org/dendrite/userapi/api"
 )
 
 type PushserverInternalAPI interface {
-	PerformPusherCreation(ctx context.Context, req *PerformPusherCreationRequest, res *PerformPusherCreationResponse) error
-	PerformPusherDeletion(ctx context.Context, req *PerformPusherDeletionRequest, res *PerformPusherDeletionResponse) error
-	PerformPusherUpdate(ctx context.Context, req *PerformPusherUpdateRequest, res *PerformPusherUpdateResponse) error
+	PerformPusherSet(ctx context.Context, req *PerformPusherSetRequest, res struct{}) error
+	PerformPusherDeletion(ctx context.Context, req *PerformPusherDeletionRequest, res struct{}) error
 	QueryPushers(ctx context.Context, req *QueryPushersRequest, res *QueryPushersResponse) error
 }
 
-type PerformPusherDeletionRequest struct {
-	AppID   string
-	PushKey string
-	UserID  string
-}
-
-type PerformPusherDeletionResponse struct {
-}
-
-// QueryPushersRequest is the request for QueryPushers
 type QueryPushersRequest struct {
-	UserID string
+	Localpart string
 }
 
-// QueryPushersResponse is the response for QueryPushers
 type QueryPushersResponse struct {
-	UserExists bool
-	Pushers    []Pusher
+	Pushers []Pusher `json:"pushers"`
 }
 
-// PerformPusherCreationRequest is the request for PerformPusherCreation
-type PerformPusherCreationRequest struct {
-	Device            *api.Device
-	PushKey           string
-	Kind              string
-	AppID             string
-	AppDisplayName    string
-	DeviceDisplayName string
-	ProfileTag        string
-	Language          string
-	Data              map[string]json.RawMessage
+type PerformPusherSetRequest struct {
+	Pusher
+	Localpart string
+	Append    bool `json:"append"`
 }
 
-// PerformPusherCreationResponse is the response for PerformPusherCreation
-type PerformPusherCreationResponse struct {
-}
-
-// PerformPusherUpdateRequest is the request for PerformPusherUpdate
-type PerformPusherUpdateRequest struct {
-	Device            *api.Device
-	PushKey           string
-	Kind              string
-	AppID             string
-	AppDisplayName    string
-	DeviceDisplayName string
-	ProfileTag        string
-	Language          string
-	Data              map[string]json.RawMessage
-}
-
-// PerformPusherUpdateResponse is the response for PerformPusherUpdate
-type PerformPusherUpdateResponse struct {
+type PerformPusherDeletionRequest struct {
+	Localpart string
+	SessionID int64
 }
 
 // Pusher represents a push notification subscriber
 type Pusher struct {
-	SessionID         int64
-	PushKey           string
-	Kind              string
-	AppID             string
-	AppDisplayName    string
-	DeviceDisplayName string
-	ProfileTag        string
-	Language          string
-	Data              Data
+	SessionID         int64  `json:"omitempty"`
+	PushKey           string `json:"pushkey"`
+	Kind              string `json:"kind"`
+	AppID             string `json:"app_id"`
+	AppDisplayName    string `json:"app_display_name"`
+	DeviceDisplayName string `json:"device_display_name"`
+	ProfileTag        string `json:"profile_tag"`
+	Language          string `json:"lang"`
+	Data              Data   `json:"data"`
 }
 
 type Data struct {
-	Format string
-	URL    string
+	Format string `json:"format"`
+	URL    string `json:"url"`
 }

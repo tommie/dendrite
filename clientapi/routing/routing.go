@@ -837,7 +837,7 @@ func Setup(
 
 	r0mux.Handle("/pushers",
 		httputil.MakeAuthAPI("get_pushers", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
-			return GetPushersByLocalpart(req, device, userAPI, psAPI)
+			return GetPushers(req, device, psAPI)
 		}),
 	).Methods(http.MethodGet, http.MethodOptions)
 
@@ -846,7 +846,7 @@ func Setup(
 			if r := rateLimits.rateLimit(req); r != nil {
 				return *r
 			}
-			return SetPusherByLocalpart(req, device, userAPI, psAPI)
+			return SetPusher(req, device, psAPI)
 		}),
 	).Methods(http.MethodPost, http.MethodOptions)
 

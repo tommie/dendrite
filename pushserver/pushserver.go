@@ -29,7 +29,7 @@ func NewInternalAPI(
 
 	pushserverDB, err := storage.Open(&cfg.Database)
 	if err != nil {
-		logrus.WithError(err).Panicf("failed to connect to room server db")
+		logrus.WithError(err).Panicf("failed to connect to push server db")
 	}
 
 	psAPI := internal.NewPushserverAPI(
@@ -40,7 +40,7 @@ func NewInternalAPI(
 		base.ProcessContext, cfg, consumer, pushserverDB, psAPI,
 	)
 	if err := rsConsumer.Start(); err != nil {
-		logrus.WithError(err).Panic("failed to start room server consumer")
+		logrus.WithError(err).Panic("failed to start push server consumer")
 	}
 
 	return psAPI

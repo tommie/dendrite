@@ -558,3 +558,4 @@ Changing master key notifies local users
 Changing user-signing key notifies local users
 Pushers created with a different access token are deleted on password change
 Pushers created with a the same access token are not deleted on password change
+Can fetch a user's pushers
