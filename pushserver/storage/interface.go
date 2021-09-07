@@ -9,7 +9,7 @@ import (
 
 type Database interface {
 	internal.PartitionStorer
-	CreatePusher(ctx context.Context, sessionId int64, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, format, url, localpart string) error
+	CreatePusher(ctx context.Context, pusher api.Pusher, localpart string) error
 	GetPushers(ctx context.Context, localpart string) ([]api.Pusher, error)
 	// GetPusher(ctx context.Context, pushkey, localpart, appid string) (*api.Pusher, error)
 	// UpdatePusher(ctx context.Context, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string) error

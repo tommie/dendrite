@@ -74,19 +74,7 @@ func mustNewDatabaseWithTestPushers(is *is.I) Database {
 	})
 	is.NoErr(err)
 	for i, testPusher := range testPushers {
-		err = dut.CreatePusher(
-			testCtx,
-			testPusher.SessionID,
-			testPusher.PushKey,
-			testPusher.Kind,
-			testPusher.AppID,
-			testPusher.AppDisplayName,
-			testPusher.DeviceDisplayName,
-			testPusher.ProfileTag,
-			testPusher.Language,
-			testPusher.Data.Format,
-			testPusher.Data.URL,
-			testUsers[i])
+		err = dut.CreatePusher(testCtx, testPusher, testUsers[i])
 		is.NoErr(err)
 	}
 	return dut

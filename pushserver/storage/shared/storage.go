@@ -16,11 +16,22 @@ type Database struct {
 }
 
 func (d *Database) CreatePusher(
-	ctx context.Context, session_id int64,
-	pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, format, url, localpart string,
+	ctx context.Context, p api.Pusher, localpart string,
 ) error {
 	return d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
-		return d.pushers.InsertPusher(ctx, session_id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, format, url, localpart)
+		return d.pushers.InsertPusher(
+			ctx,
+			p.SessionID,
+			p.PushKey,
+			p.Kind,
+			p.AppID,
+			p.AppDisplayName,
+			p.DeviceDisplayName,
+			p.ProfileTag,
+			p.Language,
+			p.Data.Format,
+			p.Data.URL,
+			localpart)
 	})
 }
 
