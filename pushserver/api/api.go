@@ -78,5 +78,10 @@ type Pusher struct {
 	DeviceDisplayName string
 	ProfileTag        string
 	Language          string
-	Data              string
+	Data              Data
+}
+
+type Data struct {
+	Format string
+	URL    string
 }
