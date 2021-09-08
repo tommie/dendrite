@@ -34,7 +34,7 @@ func (c *UserAPI) Defaults() {
 	c.PusherDatabase.Defaults(10)
 	c.AccountDatabase.ConnectionString = "file:userapi_accounts.db"
 	c.DeviceDatabase.ConnectionString = "file:userapi_devices.db"
-	c.PusherDatabase.ConnectionString = "file:userapi_pushers.db"
+	c.PusherDatabase.ConnectionString = "file:pushserver.db"
 	c.BCryptCost = bcrypt.DefaultCost
 	c.OpenIDTokenLifetimeMS = DefaultOpenIDTokenLifetimeMS
 }
