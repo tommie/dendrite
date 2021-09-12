@@ -143,7 +143,7 @@ func main() {
 	}
 	rsAPI.SetAppserviceAPI(asAPI)
 
-	psAPI := pushserver.NewInternalAPI(base)
+	psAPI := pushserver.NewInternalAPI(base, rsAPI)
 	if base.UseHTTPAPIs {
 		pushserver.AddInternalRoutes(base.InternalAPIMux, psAPI)
 		psAPI = base.PushServerHTTPClient()

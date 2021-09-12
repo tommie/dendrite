@@ -10,7 +10,7 @@ import (
 	"github.com/matrix-org/util"
 )
 
-// AddRoutes adds the RoomserverInternalAPI handlers to the http.ServeMux.
+// AddRoutes adds the PushserverInternalAPI handlers to the http.ServeMux.
 // nolint: gocyclo
 func AddRoutes(r api.PushserverInternalAPI, internalAPIMux *mux.Router) {
 	internalAPIMux.Handle(PerformPusherSetPath,

@@ -11,7 +11,7 @@ import (
 )
 
 type httpPushserverInternalAPI struct {
-	roomserverURL string
+	pushserverURL string
 	httpClient    *http.Client
 }
 
@@ -19,9 +19,11 @@ const (
 	PerformPusherSetPath      = "/userapi/performPusherSet"
 	PerformPusherDeletionPath = "/userapi/performPusherDeletion"
 	QueryPushersPath          = "/userapi/queryPushers"
+	// TODO Above functions should be translated to:
+	PushserverQueryExamplePath = "/pushserver/queryExample"
 )
 
-// NewRoomserverClient creates a PushserverInternalAPI implemented by talking to a HTTP POST API.
+// NewPushserverClient creates a PushserverInternalAPI implemented by talking to a HTTP POST API.
 // If httpClient is nil an error is returned
 func NewPushserverClient(
 	pushserverURL string,
@@ -31,7 +33,7 @@ func NewPushserverClient(
 		return nil, errors.New("NewPushserverClient: httpClient is <nil>")
 	}
 	return &httpPushserverInternalAPI{
-		roomserverURL: pushserverURL,
+		pushserverURL: pushserverURL,
 		httpClient:    httpClient,
 	}, nil
 }
@@ -62,4 +64,17 @@ func (h *httpPushserverInternalAPI) QueryPushers(ctx context.Context, req *api.Q
 
 	apiURL := h.roomserverURL + QueryPushersPath
 	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, req, res)
+}
+
+// TODO: Below is an example
+func (h *httpPushserverInternalAPI) QueryExample(
+	ctx context.Context,
+	request *api.QueryExampleRequest,
+	response *api.QueryExampleResponse,
+) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "QueryExample")
+	defer span.Finish()
+
+	apiURL := h.pushserverURL + PushserverQueryExamplePath
+	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
 }

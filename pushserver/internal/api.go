@@ -67,3 +67,15 @@ func (a *PushserverInternalAPI) QueryPushers(ctx context.Context, req *api.Query
 	res.Pushers, err = a.DB.GetPushers(ctx, req.Localpart)
 	return err
 }
+
+// TODO: THIS IS AN EXAMPLE QueryExample implements PushserverAliasAPI
+func (p *PushserverInternalAPI) QueryExample(
+	ctx context.Context,
+	request *api.QueryExampleRequest,
+	response *api.QueryExampleResponse,
+) error {
+	// Implement QueryExample here!
+
+	return nil
+}
+
