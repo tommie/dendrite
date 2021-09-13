@@ -46,7 +46,7 @@ func (h *httpPushserverInternalAPI) PerformPusherSet(
 	span, ctx := opentracing.StartSpanFromContext(ctx, "PerformPusherSet")
 	defer span.Finish()
 
-	apiURL := h.roomserverURL + PerformPusherSetPath
+	apiURL := h.pushserverURL + PerformPusherSetPath
 	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
 }
 
@@ -54,7 +54,7 @@ func (h *httpPushserverInternalAPI) PerformPusherDeletion(ctx context.Context, r
 	span, ctx := opentracing.StartSpanFromContext(ctx, "PerformPusherDeletion")
 	defer span.Finish()
 
-	apiURL := h.roomserverURL + PerformPusherSetPath
+	apiURL := h.pushserverURL + PerformPusherSetPath
 	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, req, res)
 }
 
@@ -62,19 +62,6 @@ func (h *httpPushserverInternalAPI) QueryPushers(ctx context.Context, req *api.Q
 	span, ctx := opentracing.StartSpanFromContext(ctx, "QueryPushers")
 	defer span.Finish()
 
-	apiURL := h.roomserverURL + QueryPushersPath
+	apiURL := h.pushserverURL + QueryPushersPath
 	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, req, res)
-}
-
-// TODO: Below is an example
-func (h *httpPushserverInternalAPI) QueryExample(
-	ctx context.Context,
-	request *api.QueryExampleRequest,
-	response *api.QueryExampleResponse,
-) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "QueryExample")
-	defer span.Finish()
-
-	apiURL := h.pushserverURL + PushserverQueryExamplePath
-	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
 }
