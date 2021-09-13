@@ -25,10 +25,9 @@ func Open(dbProperties *config.DatabaseOptions) (*Database, error) {
 		return nil, err
 	}
 
-	if err = shared.CreateMembershipTable(d.DB); err != nil {
+	if err = shared.CreatePushersTable(d.DB); err != nil {
 		return nil, err
 	}
-
 	if err = d.Database.Prepare(); err != nil {
 		return nil, err
 	}
