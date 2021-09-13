@@ -16,12 +16,13 @@ package personalities
 
 import (
 	"github.com/matrix-org/dendrite/pushserver"
+	roomserverAPI "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup"
 	"github.com/matrix-org/dendrite/setup/config"
 )
 
-func PushServer(base *setup.BaseDendrite, cfg *config.Dendrite) {
-	intAPI := pushserver.NewInternalAPI(base)
+func PushServer(base *setup.BaseDendrite, cfg *config.Dendrite, rsAPI roomserverAPI.RoomserverInternalAPI) {
+	intAPI := pushserver.NewInternalAPI(base, rsAPI)
 
 	pushserver.AddInternalRoutes(base.InternalAPIMux, intAPI)
 

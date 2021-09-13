@@ -84,6 +84,7 @@ func main() {
 	cfg.MediaAPI.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-mediaapi.db", *instanceName))
 	cfg.SyncAPI.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-syncapi.db", *instanceName))
 	cfg.RoomServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-roomserver.db", *instanceName))
+	cfg.PushServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-pushserver.db", *instanceName))
 	cfg.SigningKeyServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-signingkeyserver.db", *instanceName))
 	cfg.KeyServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-keyserver.db", *instanceName))
 	cfg.FederationSender.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-federationsender.db", *instanceName))
@@ -108,8 +109,6 @@ func main() {
 	userAPI := userapi.NewInternalAPI(accountDB, &cfg.UserAPI, nil, keyAPI)
 	keyAPI.SetUserAPI(userAPI)
 
-	psAPI := pushserver.NewInternalAPI(base)
-
 	rsComponent := roomserver.NewInternalAPI(
 		base, keyRing,
 	)
@@ -124,6 +123,24 @@ func main() {
 	fsAPI := federationsender.NewInternalAPI(
 		base, federation, rsAPI, keyRing, true,
 	)
+
+	ygg.SetSessionFunc(func(address string) {
+		req := &api.PerformServersAliveRequest{
+			Servers: []gomatrixserverlib.ServerName{
+				gomatrixserverlib.ServerName(address),
+			},
+		}
+		res := &api.PerformServersAliveResponse{}
+		if err := fsAPI.PerformServersAlive(context.TODO(), req, res); err != nil {
+			logrus.WithError(err).Error("Failed to send wake-up message to newly connected node")
+		}
+	})
+
+	psAPI := pushserver.NewInternalAPI(base, rsAPI)
+	if base.UseHTTPAPIs {
+		pushserver.AddInternalRoutes(base.InternalAPIMux, psAPI)
+		psAPI = base.PushServerHTTPClient()
+	}
 
 	rsComponent.SetFederationSenderAPI(fsAPI)
 

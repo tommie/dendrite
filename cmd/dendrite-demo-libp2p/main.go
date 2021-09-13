@@ -133,6 +133,7 @@ func main() {
 	cfg.MediaAPI.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-mediaapi.db", *instanceName))
 	cfg.SyncAPI.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-syncapi.db", *instanceName))
 	cfg.RoomServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-roomserver.db", *instanceName))
+	cfg.PushServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-pushserver.db", *instanceName))
 	cfg.SigningKeyServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-signingkeyserver.db", *instanceName))
 	cfg.FederationSender.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-federationsender.db", *instanceName))
 	cfg.AppServiceAPI.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-appservice.db", *instanceName))
@@ -179,7 +180,7 @@ func main() {
 		panic("failed to create new public rooms provider: " + err.Error())
 	}
 
-	psAPI := pushserver.NewInternalAPI(&base.Base)
+	psAPI := pushserver.NewInternalAPI(&base.Base, rsAPI)
 
 	monolith := setup.Monolith{
 		Config:    base.Base.Cfg,
