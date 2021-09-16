@@ -82,7 +82,8 @@ func SetPusher(
 			return invalidParam("url must be string")
 		}
 		if u != "" {
-			pushUrl, err := url.Parse(u)
+			var pushUrl *url.URL
+			pushUrl, err = url.Parse(u)
 			if err != nil {
 				return invalidParam("malformed url passed")
 			}
