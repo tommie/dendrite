@@ -17,6 +17,7 @@ package shared
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
@@ -39,8 +40,7 @@ CREATE TABLE IF NOT EXISTS pushserver_pushers (
 	device_display_name TEXT NOT NULL,
 	pushkey TEXT NOT NULL,
 	lang TEXT NOT NULL,
-	format TEXT NOT NULL,
-	url TEXT NOT NULL
+	data TEXT NOT NULL
 );
 
 -- For faster deleting by app_id, pushkey pair.
@@ -54,10 +54,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS pusher_app_id_pushkey_localpart_idx ON pushser
 `
 
 const insertPusherSQL = "" +
-	"INSERT INTO pushserver_pushers (localpart, session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, format, url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
+	"INSERT INTO pushserver_pushers (localpart, session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
 
 const selectPushersSQL = "" +
-	"SELECT session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, format, url FROM pushserver_pushers WHERE localpart = $1"
+	"SELECT session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, data FROM pushserver_pushers WHERE localpart = $1"
 
 const deletePusherSQL = "" +
 	"DELETE FROM pushserver_pushers WHERE app_id = $1 AND pushkey = $2 AND localpart = $3"
@@ -93,10 +93,10 @@ func preparePushersTable(db *sql.DB) (tables.Pusher, error) {
 // Returns nil error success.
 func (s *pushersStatements) InsertPusher(
 	ctx context.Context, session_id int64,
-	pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, format, url, localpart string,
+	pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
 ) error {
-	_, err := s.insertPusherStmt.ExecContext(ctx, localpart, session_id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, format, url)
-	logrus.Debugf("🥳 Created pusher %d", session_id)
+	_, err := s.insertPusherStmt.ExecContext(ctx, localpart, session_id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data)
+	logrus.Debugf("Created pusher %d", session_id)
 	return err
 }
 
@@ -113,6 +113,7 @@ func (s *pushersStatements) SelectPushers(
 
 	for rows.Next() {
 		var pusher api.Pusher
+		var data []byte
 		err = rows.Scan(
 			&pusher.SessionID,
 			&pusher.PushKey,
@@ -122,15 +123,18 @@ func (s *pushersStatements) SelectPushers(
 			&pusher.DeviceDisplayName,
 			&pusher.ProfileTag,
 			&pusher.Language,
-			&pusher.Data.Format,
-			&pusher.Data.URL)
+			&data)
+		if err != nil {
+			return pushers, err
+		}
+		err := json.Unmarshal(data, &pusher.Data)
 		if err != nil {
 			return pushers, err
 		}
 		pushers = append(pushers, pusher)
 	}
 
-	logrus.Debugf("🤓 Database returned %d pushers", len(pushers))
+	logrus.Debugf("Database returned %d pushers", len(pushers))
 	return pushers, rows.Err()
 }
 

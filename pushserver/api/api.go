@@ -31,18 +31,13 @@ type PerformPusherDeletionRequest struct {
 
 // Pusher represents a push notification subscriber
 type Pusher struct {
-	SessionID         int64  `json:"omitempty"`
-	PushKey           string `json:"pushkey"`
-	Kind              string `json:"kind"`
-	AppID             string `json:"app_id"`
-	AppDisplayName    string `json:"app_display_name"`
-	DeviceDisplayName string `json:"device_display_name"`
-	ProfileTag        string `json:"profile_tag"`
-	Language          string `json:"lang"`
-	Data              Data   `json:"data"`
-}
-
-type Data struct {
-	Format string `json:"format"`
-	URL    string `json:"url"`
+	SessionID         int64                  `json:"omitempty"`
+	PushKey           string                 `json:"pushkey"`
+	Kind              string                 `json:"kind"`
+	AppID             string                 `json:"app_id"`
+	AppDisplayName    string                 `json:"app_display_name"`
+	DeviceDisplayName string                 `json:"device_display_name"`
+	ProfileTag        string                 `json:"profile_tag"`
+	Language          string                 `json:"lang"`
+	Data              map[string]interface{} `json:"data"`
 }

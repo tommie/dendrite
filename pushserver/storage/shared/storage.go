@@ -3,6 +3,7 @@ package shared
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/pushserver/api"
@@ -18,6 +19,10 @@ type Database struct {
 func (d *Database) CreatePusher(
 	ctx context.Context, p api.Pusher, localpart string,
 ) error {
+	data, err := json.Marshal(p.Data)
+	if err != nil {
+		return err
+	}
 	return d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
 		return d.pushers.InsertPusher(
 			ctx,
@@ -29,8 +34,7 @@ func (d *Database) CreatePusher(
 			p.DeviceDisplayName,
 			p.ProfileTag,
 			p.Language,
-			p.Data.Format,
-			p.Data.URL,
+			string(data),
 			localpart)
 	})
 }
@@ -41,23 +45,6 @@ func (d *Database) GetPushers(
 ) ([]api.Pusher, error) {
 	return d.pushers.SelectPushers(ctx, localpart)
 }
-
-// // GetPusherByPushkey returns the pusher matching the given localpart.
-// func (d *Database) GetPusherByPushkey(
-// 	ctx context.Context, pushkey, localpart string,
-// ) (*api.Pusher, error) {
-// 	return d.pushers.SelectPusherByPushkey(ctx, localpart, pushkey)
-// }
-
-// // UpdatePusher updates the given pusher with the display name.
-// // Returns SQL error if there are problems and nil on success.
-// func (d *Database) UpdatePusher(
-// 	ctx context.Context, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
-// ) error {
-// 	return sqlutil.WithTransaction(d.DB, func(txn *sql.Tx) error {
-// 		return d.pushers.UpdatePusher(ctx, txn, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart)
-// 	})
-// }
 
 // RemovePusher deletes one pusher
 // Invoked when `append` is true and `kind` is null in

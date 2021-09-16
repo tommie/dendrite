@@ -75,15 +75,22 @@ func SetPusher(
 	if len(body.PushKey) > 512 {
 		return invalidParam("length of pushkey must be no more than 512 bytes")
 	}
-	if body.Kind != "http" {
-		invalidParam("only http kind is supported")
-	}
-	pushUrl, err := url.Parse(body.Data.URL)
-	if err != nil {
-		return invalidParam("malformed url passed")
-	}
-	if pushUrl.Scheme != "https" {
-		return invalidParam("only https scheme is allowed")
+	uInt := body.Data["url"]
+	if uInt != nil {
+		u, ok := uInt.(string)
+		if !ok {
+			return invalidParam("url must be string")
+		}
+		if u != "" {
+			pushUrl, err := url.Parse(u)
+			if err != nil {
+				return invalidParam("malformed url passed")
+			}
+			if pushUrl.Scheme != "https" {
+				return invalidParam("only https scheme is allowed")
+			}
+		}
+
 	}
 	body.Localpart = localpart
 	body.SessionID = device.SessionID

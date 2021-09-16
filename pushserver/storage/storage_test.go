@@ -24,9 +24,9 @@ var testPushers = []api.Pusher{
 		DeviceDisplayName: "iPhone 9",
 		ProfileTag:        "xxyyzz",
 		Language:          "pl",
-		Data: api.Data{
-			Format: "event_id_only",
-			URL:    "https://push-gateway.location.here/_matrix/push/v1/notify",
+		Data: map[string]interface{}{
+			"format": "event_id_only",
+			"url":    "https://push-gateway.location.there/_matrix/push/v1/notify",
 		},
 	},
 	{
@@ -38,9 +38,9 @@ var testPushers = []api.Pusher{
 		DeviceDisplayName: "Android 11",
 		ProfileTag:        "aabbcc",
 		Language:          "en",
-		Data: api.Data{
-			Format: "event_id_only",
-			URL:    "https://push-gateway.location.there/_matrix/push/v1/notify",
+		Data: map[string]interface{}{
+			"format": "event_id_only",
+			"url":    "https://push-gateway.location.there/_matrix/push/v1/notify",
 		},
 	},
 	{
@@ -52,9 +52,9 @@ var testPushers = []api.Pusher{
 		DeviceDisplayName: "Android 11",
 		ProfileTag:        "aabbcc",
 		Language:          "en",
-		Data: api.Data{
-			Format: "event_id_only",
-			URL:    "https://push-gateway.location.there/_matrix/push/v1/notify",
+		Data: map[string]interface{}{
+			"format": "event_id_only",
+			"url":    "https://push-gateway.location.there/_matrix/push/v1/notify",
 		},
 	},
 }
