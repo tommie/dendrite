@@ -480,7 +480,7 @@ func Setup(
 			if r := rateLimits.rateLimit(req); r != nil {
 				return *r
 			}
-			return Password(req, userAPI, psAPI, accountDB, device, cfg)
+			return Password(req, psAPI, userAPI, accountDB, device, cfg)
 		}),
 	).Methods(http.MethodPost, http.MethodOptions)
 

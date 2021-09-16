@@ -204,6 +204,7 @@ func main() {
 		base.Base.PublicClientAPIMux,
 		base.Base.PublicFederationAPIMux,
 		base.Base.PublicKeyAPIMux,
+		base.Base.PublicWellKnownAPIMux,
 		base.Base.PublicMediaAPIMux,
 		base.Base.SynapseAdminMux,
 	)
