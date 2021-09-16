@@ -80,7 +80,6 @@ func main() {
 	cfg.Global.Kafka.UseNaffka = true
 	cfg.UserAPI.AccountDatabase.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-account.db", *instanceName))
 	cfg.UserAPI.DeviceDatabase.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-device.db", *instanceName))
-	cfg.UserAPI.PusherDatabase.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-pusher.db", *instanceName))
 	cfg.MediaAPI.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-mediaapi.db", *instanceName))
 	cfg.SyncAPI.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-syncapi.db", *instanceName))
 	cfg.RoomServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-roomserver.db", *instanceName))
@@ -123,18 +122,6 @@ func main() {
 	fsAPI := federationsender.NewInternalAPI(
 		base, federation, rsAPI, keyRing, true,
 	)
-
-	ygg.SetSessionFunc(func(address string) {
-		req := &api.PerformServersAliveRequest{
-			Servers: []gomatrixserverlib.ServerName{
-				gomatrixserverlib.ServerName(address),
-			},
-		}
-		res := &api.PerformServersAliveResponse{}
-		if err := fsAPI.PerformServersAlive(context.TODO(), req, res); err != nil {
-			logrus.WithError(err).Error("Failed to send wake-up message to newly connected node")
-		}
-	})
 
 	psAPI := pushserver.NewInternalAPI(base, rsAPI)
 	if base.UseHTTPAPIs {
