@@ -95,7 +95,7 @@ func SetPusher(
 	}
 	body.Localpart = localpart
 	body.SessionID = device.SessionID
-	err = psAPI.PerformPusherSet(req.Context(), &body, struct{}{})
+	err = psAPI.PerformPusherSet(req.Context(), &body, &struct{}{})
 	if err != nil {
 		util.GetLogger(req.Context()).WithError(err).Error("PerformPusherSet failed")
 		return jsonerror.InternalServerError()

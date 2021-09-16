@@ -26,7 +26,7 @@ func NewPushserverAPI(
 	return a
 }
 
-func (a *PushserverInternalAPI) PerformPusherSet(ctx context.Context, req *api.PerformPusherSetRequest, res struct{}) error {
+func (a *PushserverInternalAPI) PerformPusherSet(ctx context.Context, req *api.PerformPusherSetRequest, res *struct{}) error {
 	util.GetLogger(ctx).WithFields(logrus.Fields{
 		"localpart":    req.Localpart,
 		"pushkey":      req.PushKey,
@@ -45,7 +45,7 @@ func (a *PushserverInternalAPI) PerformPusherSet(ctx context.Context, req *api.P
 	return a.DB.CreatePusher(ctx, req.Pusher, req.Localpart)
 }
 
-func (a *PushserverInternalAPI) PerformPusherDeletion(ctx context.Context, req *api.PerformPusherDeletionRequest, res struct{}) error {
+func (a *PushserverInternalAPI) PerformPusherDeletion(ctx context.Context, req *api.PerformPusherDeletionRequest, res *struct{}) error {
 	pushers, err := a.DB.GetPushers(ctx, req.Localpart)
 	if err != nil {
 		return err

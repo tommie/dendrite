@@ -16,11 +16,9 @@ type httpPushserverInternalAPI struct {
 }
 
 const (
-	PerformPusherSetPath      = "/userapi/performPusherSet"
-	PerformPusherDeletionPath = "/userapi/performPusherDeletion"
-	QueryPushersPath          = "/userapi/queryPushers"
-	// TODO Above functions should be translated to:
-	PushserverQueryExamplePath = "/pushserver/queryExample"
+	PerformPusherSetPath      = "/pushserver/performPusherSet"
+	PerformPusherDeletionPath = "/pushserver/performPusherDeletion"
+	QueryPushersPath          = "/pushserver/queryPushers"
 )
 
 // NewPushserverClient creates a PushserverInternalAPI implemented by talking to a HTTP POST API.
@@ -41,7 +39,7 @@ func NewPushserverClient(
 func (h *httpPushserverInternalAPI) PerformPusherSet(
 	ctx context.Context,
 	request *api.PerformPusherSetRequest,
-	response struct{},
+	response *struct{},
 ) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "PerformPusherSet")
 	defer span.Finish()
@@ -50,11 +48,11 @@ func (h *httpPushserverInternalAPI) PerformPusherSet(
 	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, request, response)
 }
 
-func (h *httpPushserverInternalAPI) PerformPusherDeletion(ctx context.Context, req *api.PerformPusherDeletionRequest, res struct{}) error {
+func (h *httpPushserverInternalAPI) PerformPusherDeletion(ctx context.Context, req *api.PerformPusherDeletionRequest, res *struct{}) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "PerformPusherDeletion")
 	defer span.Finish()
 
-	apiURL := h.pushserverURL + PerformPusherSetPath
+	apiURL := h.pushserverURL + PerformPusherDeletionPath
 	return httputil.PostJSON(ctx, span, h.httpClient, apiURL, req, res)
 }
 

@@ -129,7 +129,7 @@ func Password(
 			Localpart: localpart,
 			SessionID: device.SessionID,
 		}
-		if err := psAPI.PerformPusherDeletion(req.Context(), pushersReq, struct{}{}); err != nil {
+		if err := psAPI.PerformPusherDeletion(req.Context(), pushersReq, &struct{}{}); err != nil {
 			util.GetLogger(req.Context()).WithError(err).Error("PerformPusherDeletion failed")
 			return jsonerror.InternalServerError()
 		}

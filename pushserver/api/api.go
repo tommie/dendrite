@@ -5,8 +5,8 @@ import (
 )
 
 type PushserverInternalAPI interface {
-	PerformPusherSet(ctx context.Context, req *PerformPusherSetRequest, res struct{}) error
-	PerformPusherDeletion(ctx context.Context, req *PerformPusherDeletionRequest, res struct{}) error
+	PerformPusherSet(ctx context.Context, req *PerformPusherSetRequest, res *struct{}) error
+	PerformPusherDeletion(ctx context.Context, req *PerformPusherDeletionRequest, res *struct{}) error
 	QueryPushers(ctx context.Context, req *QueryPushersRequest, res *QueryPushersResponse) error
 }
 
