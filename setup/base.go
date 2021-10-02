@@ -91,10 +91,13 @@ type BaseDendrite struct {
 	//	KafkaProducer          sarama.SyncProducer
 }
 
-const HTTPServerTimeout = time.Minute * 5
-const HTTPClientTimeout = time.Second * 30
+const (
+	HTTPServerTimeout        = time.Minute * 5
+	HTTPServerRequestTimeout = HTTPServerTimeout
+	HTTPClientTimeout        = time.Second * 30
 
-const NoListener = ""
+	NoListener = ""
+)
 
 // NewBaseDendrite creates a new instance to be used by a component.
 // The componentName is used for logging purposes, and should be a friendly name
@@ -355,6 +358,7 @@ func (b *BaseDendrite) SetupAndServeHTTP(
 	externalAddr, _ := externalHTTPAddr.Address()
 
 	externalRouter := mux.NewRouter().SkipClean(true).UseEncodedPath()
+	externalRouter.Use(timeoutMiddleware)
 	internalRouter := externalRouter
 
 	externalServ := &http.Server{
@@ -473,6 +477,15 @@ func (b *BaseDendrite) SetupAndServeHTTP(
 	_ = internalServ.Shutdown(ctx)
 	_ = externalServ.Shutdown(ctx)
 	logrus.Infof("Stopped HTTP listeners")
+}
+
+// timeoutMiddleware is a Gorilla middleware that adds a timeout to all request contexts.
+func timeoutMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), HTTPServerRequestTimeout)
+		defer cancel()
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 func (b *BaseDendrite) WaitForShutdown() {

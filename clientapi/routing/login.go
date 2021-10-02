@@ -19,11 +19,12 @@ import (
 	"net/http"
 
 	"github.com/matrix-org/dendrite/clientapi/auth"
-	"github.com/matrix-org/dendrite/clientapi/httputil"
+	"github.com/matrix-org/dendrite/clientapi/auth/authtypes"
+	"github.com/matrix-org/dendrite/clientapi/auth/sso"
 	"github.com/matrix-org/dendrite/clientapi/jsonerror"
 	"github.com/matrix-org/dendrite/clientapi/userutil"
 	"github.com/matrix-org/dendrite/setup/config"
-	userapi "github.com/matrix-org/dendrite/userapi/api"
+	uapi "github.com/matrix-org/dendrite/userapi/api"
 	"github.com/matrix-org/dendrite/userapi/storage/accounts"
 	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
@@ -37,50 +38,81 @@ type loginResponse struct {
 }
 
 type flows struct {
-	Flows []flow `json:"flows"`
+	Flows []stage `json:"flows"`
 }
 
-type flow struct {
-	Type string `json:"type"`
+type stage struct {
+	Type              string             `json:"type"`
+	IdentityProviders []identityProvider `json:"identity_providers,omitempty"`
 }
 
-func passwordLogin() flows {
-	f := flows{}
-	s := flow{
-		Type: "m.login.password",
+type identityProvider struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Brand string `json:"brand,omitempty"`
+	Icon  string `json:"icon,omitempty"`
+}
+
+func passwordLogin() []stage {
+	return []stage{
+		{Type: authtypes.LoginTypePassword},
 	}
-	f.Flows = append(f.Flows, s)
-	return f
+}
+
+func ssoLogin(cfg *config.ClientAPI) []stage {
+	var idps []identityProvider
+	for _, idp := range cfg.Login.SSO.Providers {
+		brand := idp.Brand
+		if brand == "" {
+			typ := idp.Type
+			if typ == "" {
+				typ = idp.ID
+			}
+			idpType := sso.GetIdentityProvider(sso.IdentityProviderType(typ))
+			if idpType != nil {
+				brand = idpType.DefaultBrand()
+			}
+		}
+		idps = append(idps, identityProvider{
+			ID:    idp.ID,
+			Name:  idp.Name,
+			Brand: brand,
+			Icon:  idp.Icon,
+		})
+	}
+	return []stage{
+		{
+			Type:              authtypes.LoginTypeSSO,
+			IdentityProviders: idps,
+		},
+	}
 }
 
 // Login implements GET and POST /login
 func Login(
-	req *http.Request, accountDB accounts.Database, userAPI userapi.UserInternalAPI,
+	req *http.Request, accountDB accounts.Database, userAPI uapi.UserInternalAPI,
 	cfg *config.ClientAPI,
 ) util.JSONResponse {
 	if req.Method == http.MethodGet {
-		// TODO: support other forms of login other than password, depending on config options
+		allFlows := passwordLogin()
+		if cfg.Login.SSO.Enabled {
+			allFlows = append(allFlows, ssoLogin(cfg)...)
+		}
 		return util.JSONResponse{
 			Code: http.StatusOK,
-			JSON: passwordLogin(),
+			JSON: flows{Flows: allFlows},
 		}
 	} else if req.Method == http.MethodPost {
-		typePassword := auth.LoginTypePassword{
-			GetAccountByPassword: accountDB.GetAccountByPassword,
-			Config:               cfg,
-		}
-		r := typePassword.Request()
-		resErr := httputil.UnmarshalJSONRequest(req, r)
-		if resErr != nil {
-			return *resErr
-		}
-		login, authErr := typePassword.Login(req.Context(), r)
+		login, cleanup, authErr := auth.LoginFromJSONReader(req.Context(), req.Body, accountDB, userAPI, cfg)
 		if authErr != nil {
 			return *authErr
 		}
 		// make a device/access token
-		return completeAuth(req.Context(), cfg.Matrix.ServerName, userAPI, login, req.RemoteAddr, req.UserAgent())
+		authzErr := completeAuth(req.Context(), cfg.Matrix.ServerName, userAPI, login, req.RemoteAddr, req.UserAgent())
+		cleanup(req.Context(), &authzErr)
+		return authzErr
 	}
+
 	return util.JSONResponse{
 		Code: http.StatusMethodNotAllowed,
 		JSON: jsonerror.NotFound("Bad method"),
@@ -88,7 +120,7 @@ func Login(
 }
 
 func completeAuth(
-	ctx context.Context, serverName gomatrixserverlib.ServerName, userAPI userapi.UserInternalAPI, login *auth.Login,
+	ctx context.Context, serverName gomatrixserverlib.ServerName, userAPI uapi.UserInternalAPI, login *auth.Login,
 	ipAddr, userAgent string,
 ) util.JSONResponse {
 	token, err := auth.GenerateAccessToken()
@@ -103,8 +135,8 @@ func completeAuth(
 		return jsonerror.InternalServerError()
 	}
 
-	var performRes userapi.PerformDeviceCreationResponse
-	err = userAPI.PerformDeviceCreation(ctx, &userapi.PerformDeviceCreationRequest{
+	var performRes uapi.PerformDeviceCreationResponse
+	err = userAPI.PerformDeviceCreation(ctx, &uapi.PerformDeviceCreationRequest{
 		DeviceDisplayName: login.InitialDisplayName,
 		DeviceID:          login.DeviceID,
 		AccessToken:       token,

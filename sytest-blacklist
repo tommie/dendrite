@@ -30,7 +30,7 @@ Outbound federation can backfill events
 Alias creators can delete canonical alias with no ops
 
 # Blacklisted because we need to implement v2 invite endpoints for room versions
-# to be supported (currently fails with M_UNSUPPORTED_ROOM_VERSION) 
+# to be supported (currently fails with M_UNSUPPORTED_ROOM_VERSION)
 Inbound federation rejects invites which are not signed by the sender
 
 # Blacklisted because we don't support ignores yet
@@ -77,3 +77,7 @@ Local device key changes appear in /keys/changes
 # we don't support groups
 Remove group category
 Remove group role
+
+# Broken
+Device list doesn't change if remote server is down
+If a device list update goes missing, the server resyncs on the next one
