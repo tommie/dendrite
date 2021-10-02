@@ -52,6 +52,7 @@ func AddRoutes(internalAPIMux *mux.Router, s api.UserInternalAPI) {
 			return util.JSONResponse{Code: http.StatusOK, JSON: &response}
 		}),
 	)
+
 	internalAPIMux.Handle(PerformDeviceCreationPath,
 		httputil.MakeInternalAPI("performDeviceCreation", func(req *http.Request) util.JSONResponse {
 			request := api.PerformDeviceCreationRequest{}

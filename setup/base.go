@@ -51,6 +51,8 @@ import (
 	fsinthttp "github.com/matrix-org/dendrite/federationsender/inthttp"
 	keyserverAPI "github.com/matrix-org/dendrite/keyserver/api"
 	keyinthttp "github.com/matrix-org/dendrite/keyserver/inthttp"
+	pushserverAPI "github.com/matrix-org/dendrite/pushserver/api"
+	psinthttp "github.com/matrix-org/dendrite/pushserver/inthttp"
 	roomserverAPI "github.com/matrix-org/dendrite/roomserver/api"
 	rsinthttp "github.com/matrix-org/dendrite/roomserver/inthttp"
 	"github.com/matrix-org/dendrite/setup/config"
@@ -76,6 +78,7 @@ type BaseDendrite struct {
 	PublicFederationAPIMux *mux.Router
 	PublicKeyAPIMux        *mux.Router
 	PublicMediaAPIMux      *mux.Router
+	PublicWellKnownAPIMux  *mux.Router
 	InternalAPIMux         *mux.Router
 	SynapseAdminMux        *mux.Router
 	UseHTTPAPIs            bool
@@ -198,6 +201,7 @@ func NewBaseDendrite(cfg *config.Dendrite, componentName string, useHTTPAPIs boo
 		PublicFederationAPIMux: mux.NewRouter().SkipClean(true).PathPrefix(httputil.PublicFederationPathPrefix).Subrouter().UseEncodedPath(),
 		PublicKeyAPIMux:        mux.NewRouter().SkipClean(true).PathPrefix(httputil.PublicKeyPathPrefix).Subrouter().UseEncodedPath(),
 		PublicMediaAPIMux:      mux.NewRouter().SkipClean(true).PathPrefix(httputil.PublicMediaPathPrefix).Subrouter().UseEncodedPath(),
+		PublicWellKnownAPIMux:  mux.NewRouter().SkipClean(true).PathPrefix(httputil.PublicWellKnownPrefix).Subrouter().UseEncodedPath(),
 		InternalAPIMux:         mux.NewRouter().SkipClean(true).PathPrefix(httputil.InternalPathPrefix).Subrouter().UseEncodedPath(),
 		SynapseAdminMux:        mux.NewRouter().SkipClean(true).PathPrefix("/_synapse/").Subrouter().UseEncodedPath(),
 		apiHttpClient:          &apiClient,
@@ -274,6 +278,15 @@ func (b *BaseDendrite) KeyServerHTTPClient() keyserverAPI.KeyInternalAPI {
 	f, err := keyinthttp.NewKeyServerClient(b.Cfg.KeyServerURL(), b.apiHttpClient)
 	if err != nil {
 		logrus.WithError(err).Panic("KeyServerHTTPClient failed", b.apiHttpClient)
+	}
+	return f
+}
+
+// PushServerHTTPClient returns PushserverInternalAPI for hitting the push server over HTTP
+func (b *BaseDendrite) PushServerHTTPClient() pushserverAPI.PushserverInternalAPI {
+	f, err := psinthttp.NewPushserverClient(b.Cfg.PushServerURL(), b.apiHttpClient)
+	if err != nil {
+		logrus.WithError(err).Panic("PushServerHTTPClient failed", b.apiHttpClient)
 	}
 	return f
 }
@@ -394,6 +407,7 @@ func (b *BaseDendrite) SetupAndServeHTTP(
 	}
 	externalRouter.PathPrefix("/_synapse/").Handler(b.SynapseAdminMux)
 	externalRouter.PathPrefix(httputil.PublicMediaPathPrefix).Handler(b.PublicMediaAPIMux)
+	externalRouter.PathPrefix(httputil.PublicWellKnownPrefix).Handler(b.PublicWellKnownAPIMux)
 
 	if internalAddr != NoListener && internalAddr != externalAddr {
 		go func() {

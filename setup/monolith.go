@@ -25,6 +25,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/transactions"
 	keyAPI "github.com/matrix-org/dendrite/keyserver/api"
 	"github.com/matrix-org/dendrite/mediaapi"
+	pushserverAPI "github.com/matrix-org/dendrite/pushserver/api"
 	roomserverAPI "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/setup/process"
@@ -51,22 +52,23 @@ type Monolith struct {
 	ServerKeyAPI        serverKeyAPI.SigningKeyServerAPI
 	UserAPI             userapi.UserInternalAPI
 	KeyAPI              keyAPI.KeyInternalAPI
+	PushserverAPI       pushserverAPI.PushserverInternalAPI
 
 	// Optional
 	ExtPublicRoomsProvider api.ExtraPublicRoomsProvider
 }
 
 // AddAllPublicRoutes attaches all public paths to the given router
-func (m *Monolith) AddAllPublicRoutes(process *process.ProcessContext, csMux, ssMux, keyMux, mediaMux, synapseMux *mux.Router) {
+func (m *Monolith) AddAllPublicRoutes(process *process.ProcessContext, csMux, ssMux, keyMux, wkMux, mediaMux, synapseMux *mux.Router) {
 	clientapi.AddPublicRoutes(
 		csMux, synapseMux, &m.Config.ClientAPI, m.AccountDB,
 		m.FedClient, m.RoomserverAPI,
 		m.EDUInternalAPI, m.AppserviceAPI, transactions.New(),
-		m.FederationSenderAPI, m.UserAPI, m.KeyAPI, m.ExtPublicRoomsProvider,
-		&m.Config.MSCs,
+		m.FederationSenderAPI, m.UserAPI, m.KeyAPI, m.PushserverAPI,
+		m.ExtPublicRoomsProvider, &m.Config.MSCs,
 	)
 	federationapi.AddPublicRoutes(
-		ssMux, keyMux, &m.Config.FederationAPI, m.UserAPI, m.FedClient,
+		ssMux, keyMux, wkMux, &m.Config.FederationAPI, m.UserAPI, m.FedClient,
 		m.KeyRing, m.RoomserverAPI, m.FederationSenderAPI,
 		m.EDUInternalAPI, m.KeyAPI, &m.Config.MSCs, nil,
 	)

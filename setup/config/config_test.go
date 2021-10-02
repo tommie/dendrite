@@ -39,6 +39,7 @@ global:
   private_key: matrix_key.pem
   key_id: ed25519:auto
   key_validity_period: 168h0m0s
+  well_known_server_name: "localhost:443"
   trusted_third_party_id_servers:
   - matrix.org
   - vector.im
@@ -201,6 +202,11 @@ user_api:
     conn_max_lifetime: -1
   device_database:
     connection_string: file:userapi_devices.db
+    max_open_conns: 100
+    max_idle_conns: 2
+    conn_max_lifetime: -1
+  pusher_database:
+    connection_string: file:pushserver.db
     max_open_conns: 100
     max_idle_conns: 2
     conn_max_lifetime: -1

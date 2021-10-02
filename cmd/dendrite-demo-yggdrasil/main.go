@@ -36,6 +36,7 @@ import (
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/httputil"
 	"github.com/matrix-org/dendrite/keyserver"
+	"github.com/matrix-org/dendrite/pushserver"
 	"github.com/matrix-org/dendrite/roomserver"
 	"github.com/matrix-org/dendrite/setup"
 	"github.com/matrix-org/dendrite/setup/config"
@@ -82,6 +83,7 @@ func main() {
 	cfg.MediaAPI.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-mediaapi.db", *instanceName))
 	cfg.SyncAPI.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-syncapi.db", *instanceName))
 	cfg.RoomServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-roomserver.db", *instanceName))
+	cfg.PushServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-pushserver.db", *instanceName))
 	cfg.SigningKeyServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-signingkeyserver.db", *instanceName))
 	cfg.KeyServer.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-keyserver.db", *instanceName))
 	cfg.FederationSender.Database.ConnectionString = config.DataSource(fmt.Sprintf("file:%s-federationsender.db", *instanceName))
@@ -121,6 +123,12 @@ func main() {
 		base, federation, rsAPI, keyRing, true,
 	)
 
+	psAPI := pushserver.NewInternalAPI(base, rsAPI)
+	if base.UseHTTPAPIs {
+		pushserver.AddInternalRoutes(base.InternalAPIMux, psAPI)
+		psAPI = base.PushServerHTTPClient()
+	}
+
 	rsComponent.SetFederationSenderAPI(fsAPI)
 
 	monolith := setup.Monolith{
@@ -136,6 +144,7 @@ func main() {
 		RoomserverAPI:       rsAPI,
 		UserAPI:             userAPI,
 		KeyAPI:              keyAPI,
+		PushserverAPI:       psAPI,
 		ExtPublicRoomsProvider: yggrooms.NewYggdrasilRoomProvider(
 			ygg, fsAPI, federation,
 		),
@@ -145,6 +154,7 @@ func main() {
 		base.PublicClientAPIMux,
 		base.PublicFederationAPIMux,
 		base.PublicKeyAPIMux,
+		base.PublicWellKnownAPIMux,
 		base.PublicMediaAPIMux,
 		base.SynapseAdminMux,
 	)

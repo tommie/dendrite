@@ -52,6 +52,10 @@ global:
   # considered valid by other homeservers.
   key_validity_period: 168h0m0s
 
+  # The server name to delegate server-server communications to, with optional port
+  # e.g. localhost:443
+  well_known_server_name: ""
+
   # Lists of domains that the server will trust as identity servers to verify third
   # party identifiers such as phone numbers and email addresses.
   trusted_third_party_id_servers:
@@ -315,6 +319,17 @@ user_api:
     conn_max_lifetime: -1
   device_database:
     connection_string: postgresql://dendrite:itsasecret@postgres/dendrite_userapi_devices?sslmode=disable
+    max_open_conns: 10
+    max_idle_conns: 2
+    conn_max_lifetime: -1
+
+# Configuration for the Push Server API.
+push_server:
+  internal_api:
+    listen: http://localhost:7782
+    connect: http://localhost:7782
+  database:
+    connection_string: postgresql://dendrite:itsasecret@postgres/dendrite_pushserver?sslmode=disable
     max_open_conns: 10
     max_idle_conns: 2
     conn_max_lifetime: -1
