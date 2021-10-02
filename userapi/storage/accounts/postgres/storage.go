@@ -27,6 +27,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/userapi/api"
+	"github.com/matrix-org/dendrite/userapi/storage/accounts/common"
 	"github.com/matrix-org/dendrite/userapi/storage/accounts/postgres/deltas"
 	"github.com/matrix-org/gomatrixserverlib"
 	"golang.org/x/crypto/bcrypt"
@@ -206,15 +207,11 @@ func (d *Database) createAccount(
 	if err = d.profiles.insertProfile(ctx, txn, localpart); err != nil {
 		return nil, err
 	}
-	if err = d.accountDatas.insertAccountData(ctx, txn, localpart, "", "m.push_rules", json.RawMessage(`{
-		"global": {
-			"content": [],
-			"override": [],
-			"room": [],
-			"sender": [],
-			"underride": []
-		}
-	}`)); err != nil {
+	pr, err := common.DefaultPushRules(localpart, string(d.serverName))
+	if err != nil {
+		return nil, err
+	}
+	if err = d.accountDatas.insertAccountData(ctx, txn, localpart, "", "m.push_rules", pr); err != nil {
 		return nil, err
 	}
 	return account, nil

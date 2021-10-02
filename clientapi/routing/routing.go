@@ -15,7 +15,6 @@
 package routing
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -531,20 +530,29 @@ func Setup(
 	).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
 
 	r0mux.Handle("/pushrules/",
-		httputil.MakeExternalAPI("push_rules", func(req *http.Request) util.JSONResponse {
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			const pushRulesType = "m.push_rules"
+
 			// TODO: Implement push rules API
-			res := json.RawMessage(`{
-					"global": {
-						"content": [],
-						"override": [],
-						"room": [],
-						"sender": [],
-						"underride": []
-					}
-				}`)
+			dataReq := userapi.QueryAccountDataRequest{
+				UserID:   device.UserID,
+				DataType: pushRulesType,
+			}
+			var dataRes userapi.QueryAccountDataResponse
+			if err := userAPI.QueryAccountData(req.Context(), &dataReq, &dataRes); err != nil {
+				util.GetLogger(req.Context()).WithError(err).Error("userAPI.QueryAccountData failed")
+				return util.ErrorResponse(err)
+			}
+			data, ok := dataRes.GlobalAccountData[pushRulesType]
+			if !ok {
+				return util.JSONResponse{
+					Code: http.StatusNotFound,
+					JSON: jsonerror.NotFound("data not found"),
+				}
+			}
 			return util.JSONResponse{
 				Code: http.StatusOK,
-				JSON: &res,
+				JSON: data,
 			}
 		}),
 	).Methods(http.MethodGet, http.MethodOptions)
