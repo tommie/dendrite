@@ -29,17 +29,17 @@ func NewPushserverAPI(
 func (a *PushserverInternalAPI) PerformPusherSet(ctx context.Context, req *api.PerformPusherSetRequest, res *struct{}) error {
 	util.GetLogger(ctx).WithFields(logrus.Fields{
 		"localpart":    req.Localpart,
-		"pushkey":      req.PushKey,
-		"display_name": req.AppDisplayName,
+		"pushkey":      req.Pusher.PushKey,
+		"display_name": req.Pusher.AppDisplayName,
 	}).Info("PerformPusherCreation")
 	if !req.Append {
-		err := a.DB.RemovePushers(ctx, req.AppID, req.AppDisplayName)
+		err := a.DB.RemovePushers(ctx, req.Pusher.AppID, req.Pusher.AppDisplayName)
 		if err != nil {
 			return err
 		}
 	} else {
-		if req.Kind == "" {
-			return a.DB.RemovePusher(ctx, req.AppID, req.AppDisplayName, req.Localpart)
+		if req.Pusher.Kind == "" {
+			return a.DB.RemovePusher(ctx, req.Pusher.AppID, req.Pusher.AppDisplayName, req.Localpart)
 		}
 	}
 	return a.DB.CreatePusher(ctx, req.Pusher, req.Localpart)

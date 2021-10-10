@@ -19,7 +19,7 @@ type QueryPushersResponse struct {
 }
 
 type PerformPusherSetRequest struct {
-	Pusher
+	Pusher    // Anonymous field because that's how clientapi unmarshals it.
 	Localpart string
 	Append    bool `json:"append"`
 }
@@ -31,9 +31,9 @@ type PerformPusherDeletionRequest struct {
 
 // Pusher represents a push notification subscriber
 type Pusher struct {
-	SessionID         int64                  `json:"omitempty"`
+	SessionID         int64                  `json:"session_id,omitempty"`
 	PushKey           string                 `json:"pushkey"`
-	Kind              string                 `json:"kind"`
+	Kind              PusherKind             `json:"kind"`
 	AppID             string                 `json:"app_id"`
 	AppDisplayName    string                 `json:"app_display_name"`
 	DeviceDisplayName string                 `json:"device_display_name"`
@@ -41,3 +41,10 @@ type Pusher struct {
 	Language          string                 `json:"lang"`
 	Data              map[string]interface{} `json:"data"`
 }
+
+type PusherKind string
+
+const (
+	EmailKind PusherKind = "email"
+	HTTPKind  PusherKind = "http"
+)

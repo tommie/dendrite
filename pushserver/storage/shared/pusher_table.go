@@ -93,7 +93,7 @@ func preparePushersTable(db *sql.DB) (tables.Pusher, error) {
 // Returns nil error success.
 func (s *pushersStatements) InsertPusher(
 	ctx context.Context, session_id int64,
-	pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
+	pushkey string, kind api.PusherKind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
 ) error {
 	_, err := s.insertPusherStmt.ExecContext(ctx, localpart, session_id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data)
 	logrus.Debugf("Created pusher %d", session_id)

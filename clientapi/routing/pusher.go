@@ -69,13 +69,13 @@ func SetPusher(
 	if resErr := httputil.UnmarshalJSONRequest(req, &body); resErr != nil {
 		return *resErr
 	}
-	if len(body.AppID) > 64 {
+	if len(body.Pusher.AppID) > 64 {
 		return invalidParam("length of app_id must be no more than 64 characters")
 	}
-	if len(body.PushKey) > 512 {
+	if len(body.Pusher.PushKey) > 512 {
 		return invalidParam("length of pushkey must be no more than 512 bytes")
 	}
-	uInt := body.Data["url"]
+	uInt := body.Pusher.Data["url"]
 	if uInt != nil {
 		u, ok := uInt.(string)
 		if !ok {
@@ -94,7 +94,7 @@ func SetPusher(
 
 	}
 	body.Localpart = localpart
-	body.SessionID = device.SessionID
+	body.Pusher.SessionID = device.SessionID
 	err = psAPI.PerformPusherSet(req.Context(), &body, &struct{}{})
 	if err != nil {
 		util.GetLogger(req.Context()).WithError(err).Error("PerformPusherSet failed")

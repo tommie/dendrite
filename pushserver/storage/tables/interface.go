@@ -9,7 +9,7 @@ import (
 type Pusher interface {
 	InsertPusher(
 		ctx context.Context, session_id int64,
-		pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
+		pushkey string, kind api.PusherKind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
 	) error
 	SelectPushers(
 		ctx context.Context, localpart string,
