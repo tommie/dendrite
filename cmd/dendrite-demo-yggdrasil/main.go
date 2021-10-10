@@ -123,7 +123,8 @@ func main() {
 		base, federation, rsAPI, keyRing, true,
 	)
 
-	psAPI := pushserver.NewInternalAPI(base, rsAPI)
+	pgClient := base.PushGatewayHTTPClient()
+	psAPI := pushserver.NewInternalAPI(base, pgClient, rsAPI)
 	if base.UseHTTPAPIs {
 		pushserver.AddInternalRoutes(base.InternalAPIMux, psAPI)
 		psAPI = base.PushServerHTTPClient()

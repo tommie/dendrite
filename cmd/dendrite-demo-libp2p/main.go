@@ -179,7 +179,8 @@ func main() {
 		panic("failed to create new public rooms provider: " + err.Error())
 	}
 
-	psAPI := pushserver.NewInternalAPI(&base.Base, rsAPI)
+	pgClient := base.Base.PushGatewayHTTPClient()
+	psAPI := pushserver.NewInternalAPI(&base.Base, pgClient, rsAPI)
 
 	monolith := setup.Monolith{
 		Config:    base.Base.Cfg,

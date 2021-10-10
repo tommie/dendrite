@@ -2,6 +2,7 @@ package pushserver
 
 import (
 	"github.com/gorilla/mux"
+	"github.com/matrix-org/dendrite/internal/pushgateway"
 	"github.com/matrix-org/dendrite/pushserver/api"
 	"github.com/matrix-org/dendrite/pushserver/consumers"
 	"github.com/matrix-org/dendrite/pushserver/internal"
@@ -23,6 +24,7 @@ func AddInternalRoutes(router *mux.Router, intAPI api.PushserverInternalAPI) {
 // can call functions directly on the returned API or via an HTTP interface using AddInternalRoutes.
 func NewInternalAPI(
 	base *setup.BaseDendrite,
+	pgClient pushgateway.Client,
 	rsAPI roomserverAPI.RoomserverInternalAPI,
 ) api.PushserverInternalAPI {
 	cfg := &base.Cfg.PushServer
@@ -39,7 +41,7 @@ func NewInternalAPI(
 	)
 
 	rsConsumer := consumers.NewOutputRoomEventConsumer(
-		base.ProcessContext, cfg, consumer, pushserverDB, psAPI, rsAPI,
+		base.ProcessContext, cfg, consumer, pushserverDB, pgClient, psAPI, rsAPI,
 	)
 	if err := rsConsumer.Start(); err != nil {
 		logrus.WithError(err).Panic("failed to start push server consumer")
