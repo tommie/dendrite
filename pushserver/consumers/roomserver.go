@@ -10,6 +10,7 @@ import (
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/pushgateway"
 	"github.com/matrix-org/dendrite/pushserver/api"
+	"github.com/matrix-org/dendrite/pushserver/internal/pushrules"
 	"github.com/matrix-org/dendrite/pushserver/storage"
 	rsapi "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup/config"
@@ -103,7 +104,7 @@ func (s *OutputRoomEventConsumer) processMessage(ctx context.Context, event *gom
 		"event_type": event.Type(),
 	}).Infof("Received event from room server: %#v", event)
 
-	members, err := s.localRoomMembers(ctx, event.RoomID())
+	members, roomSize, err := s.localRoomMembers(ctx, event.RoomID())
 	if err != nil {
 		return err
 	}
@@ -120,10 +121,10 @@ func (s *OutputRoomEventConsumer) processMessage(ctx context.Context, event *gom
 	// TODO: does it have to be set? It's not required, and
 	// removing it means we can send all notifications to
 	// e.g. Element's Push gateway in one go.
-	for _, localpart := range members {
-		if err := s.notifyLocal(ctx, event, localpart); err != nil {
+	for _, mem := range members {
+		if err := s.notifyLocal(ctx, event, mem, roomSize); err != nil {
 			log.WithFields(log.Fields{
-				"localpart": localpart,
+				"localpart": mem.Localpart,
 			}).WithError(err).Errorf("Unable to evaluate push rules")
 			continue
 		}
@@ -132,8 +133,15 @@ func (s *OutputRoomEventConsumer) processMessage(ctx context.Context, event *gom
 	return nil
 }
 
-// localRoomMembers fetches the current local members of a room.
-func (s *OutputRoomEventConsumer) localRoomMembers(ctx context.Context, roomID string) ([]string, error) {
+type localMembership struct {
+	gomatrixserverlib.MemberContent
+	UserID    string
+	Localpart string
+}
+
+// localRoomMembers fetches the current local members of a room, and
+// the total number of members.
+func (s *OutputRoomEventConsumer) localRoomMembers(ctx context.Context, roomID string) ([]*localMembership, int, error) {
 	req := &rsapi.QueryMembershipsForRoomRequest{
 		RoomID:     roomID,
 		JoinedOnly: true,
@@ -143,23 +151,26 @@ func (s *OutputRoomEventConsumer) localRoomMembers(ctx context.Context, roomID s
 	// XXX: This could potentially race if the state for the event is not known yet
 	// e.g. the event came over federation but we do not have the full state persisted.
 	if err := s.rsAPI.QueryMembershipsForRoom(ctx, req, &res); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	var members []string
+	var members []*localMembership
+	var ntotal int
 	for _, event := range res.JoinEvents {
 		if event.StateKey == nil {
 			continue
 		}
 
-		var member gomatrixserverlib.MemberContent
-		if err := json.Unmarshal(event.Content, &member); err != nil {
+		var member localMembership
+		if err := json.Unmarshal(event.Content, &member.MemberContent); err != nil {
 			log.WithError(err).Errorf("Parsing MemberContent")
 			continue
 		}
 		if member.Membership != gomatrixserverlib.Join {
 			continue
 		}
+
+		ntotal++
 
 		localpart, domain, err := gomatrixserverlib.SplitID('@', *event.StateKey)
 		if err != nil {
@@ -172,29 +183,31 @@ func (s *OutputRoomEventConsumer) localRoomMembers(ctx context.Context, roomID s
 			continue
 		}
 
-		members = append(members, localpart)
+		member.UserID = *event.StateKey
+		member.Localpart = localpart
+		members = append(members, &member)
 	}
 
-	return members, nil
+	return members, ntotal, nil
 }
 
 // notifyLocal finds the right push actions for a local user, given an event.
-func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, localpart string) error {
-	ok, tweaks, err := s.evaluatePushRules(ctx, event, localpart)
+func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, mem *localMembership, roomSize int) error {
+	ok, tweaks, err := s.evaluatePushRules(ctx, event, mem, roomSize)
 	if err != nil {
 		return err
 	} else if !ok {
 		return nil
 	}
 
-	devicesByURL, err := s.localPushDevices(ctx, localpart, tweaks)
+	devicesByURL, err := s.localPushDevices(ctx, mem.Localpart, tweaks)
 	if err != nil {
 		return err
 	}
 
 	log.WithFields(log.Fields{
 		"room_id":   event.RoomID(),
-		"localpart": localpart,
+		"localpart": mem.Localpart,
 		"num_urls":  len(devicesByURL),
 	}).Infof("Notifying push gateways")
 
@@ -202,7 +215,7 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 	for url, devices := range devicesByURL {
 		log.WithFields(log.Fields{
 			"room_id":   event.RoomID(),
-			"localpart": localpart,
+			"localpart": mem.Localpart,
 			"url":       url,
 		}).Infof("Notifying push gateway")
 
@@ -211,11 +224,11 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 			continue
 		}
 
-		rej, err := s.notifyHTTP(ctx, event, url, devices, localpart)
+		rej, err := s.notifyHTTP(ctx, event, url, devices, mem.Localpart)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"event_id":  event.EventID(),
-				"localpart": localpart,
+				"localpart": mem.Localpart,
 			}).WithError(err).Errorf("Unable to notify HTTP pusher")
 			continue
 		}
@@ -223,7 +236,7 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 	}
 
 	if len(rejected) > 0 {
-		return s.deleteRejectedPushers(ctx, rejected, localpart)
+		return s.deleteRejectedPushers(ctx, rejected, mem.Localpart)
 	}
 
 	return nil
@@ -231,9 +244,84 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 
 // evaluatePushRules fetches and evaluates the push rules of a local
 // user. Returns true if the event should be pushed.
-func (s *OutputRoomEventConsumer) evaluatePushRules(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, localpart string) (ok bool, tweaks map[string]interface{}, err error) {
-	// TODO: evaluate push rules
-	return true, nil, nil
+func (s *OutputRoomEventConsumer) evaluatePushRules(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, mem *localMembership, roomSize int) (bool, map[string]interface{}, error) {
+	if event.Sender() == mem.UserID {
+		// SPEC: Homeservers MUST NOT notify the Push Gateway for
+		// events that the user has sent themselves.
+		return false, nil, nil
+	}
+
+	// TODO: fetch the user's push rules.
+	ruleSet := pushrules.DefaultRuleSet(mem.Localpart, s.cfg.Matrix.ServerName)
+
+	ec := &ruleSetEvalContext{
+		ctx:      ctx,
+		rsAPI:    s.rsAPI,
+		mem:      mem,
+		roomID:   event.RoomID(),
+		roomSize: roomSize,
+	}
+	eval := pushrules.NewRuleSetEvaluator(ec, ruleSet)
+	rule, err := eval.MatchEvent(event.Event)
+	if err != nil {
+		return false, nil, err
+	}
+	if rule == nil {
+		// SPEC: If no rules match an event, the homeserver MUST NOT
+		// notify the Push Gateway for that event.
+		return false, nil, err
+	}
+
+	log.WithFields(log.Fields{
+		"room_id":   event.RoomID(),
+		"localpart": mem.Localpart,
+		"rule_id":   rule.RuleID,
+	}).Infof("Matched a push rule")
+
+	a, tweaks, err := pushrules.ActionsToTweaks(rule.Actions)
+	if err != nil {
+		return false, nil, err
+	}
+
+	// TODO: support coalescing.
+	return a == pushrules.NotifyAction || a == pushrules.CoalesceAction, tweaks, nil
+}
+
+type ruleSetEvalContext struct {
+	ctx      context.Context
+	rsAPI    rsapi.RoomserverInternalAPI
+	mem      *localMembership
+	roomID   string
+	roomSize int
+}
+
+func (rse *ruleSetEvalContext) UserDisplayName() string { return rse.mem.DisplayName }
+
+func (rse *ruleSetEvalContext) RoomMemberCount() (int, error) { return rse.roomSize, nil }
+
+func (rse *ruleSetEvalContext) HasPowerLevel(userID, levelKey string) (bool, error) {
+	req := &rsapi.QueryLatestEventsAndStateRequest{
+		RoomID: rse.roomID,
+		StateToFetch: []gomatrixserverlib.StateKeyTuple{
+			{EventType: "m.room.power_levels"},
+		},
+	}
+	var res rsapi.QueryLatestEventsAndStateResponse
+	if err := rse.rsAPI.QueryLatestEventsAndState(rse.ctx, req, &res); err != nil {
+		return false, err
+	}
+	for _, ev := range res.StateEvents {
+		if ev.Type() != gomatrixserverlib.MRoomPowerLevels {
+			continue
+		}
+
+		plc, err := gomatrixserverlib.NewPowerLevelContentFromEvent(ev.Event)
+		if err != nil {
+			return false, err
+		}
+		return plc.UserLevel(userID) >= plc.NotificationLevel(levelKey), nil
+	}
+	return true, nil
 }
 
 // localPushDevices pushes to the configured devices of a local user.
