@@ -275,8 +275,10 @@ func (s *OutputRoomEventConsumer) evaluatePushRules(ctx context.Context, event *
 		return false, nil, nil
 	}
 
-	// TODO: fetch the user's push rules.
-	ruleSet := pushrules.DefaultRuleSet(mem.Localpart, s.cfg.Matrix.ServerName)
+	var res api.QueryPushRulesResponse
+	if err := s.psAPI.QueryPushRules(ctx, &api.QueryPushRulesRequest{UserID: mem.UserID}, &res); err != nil {
+		return false, nil, err
+	}
 
 	ec := &ruleSetEvalContext{
 		ctx:      ctx,
@@ -285,7 +287,7 @@ func (s *OutputRoomEventConsumer) evaluatePushRules(ctx context.Context, event *
 		roomID:   event.RoomID(),
 		roomSize: roomSize,
 	}
-	eval := pushrules.NewRuleSetEvaluator(ec, ruleSet)
+	eval := pushrules.NewRuleSetEvaluator(ec, &res.RuleSets.Global)
 	rule, err := eval.MatchEvent(event.Event)
 	if err != nil {
 		return false, nil, err
