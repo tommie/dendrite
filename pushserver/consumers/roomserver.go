@@ -109,6 +109,19 @@ func (s *OutputRoomEventConsumer) processMessage(ctx context.Context, event *gom
 		return err
 	}
 
+	if event.Type() == gomatrixserverlib.MRoomMember {
+		cevent := gomatrixserverlib.HeaderedToClientEvent(event, gomatrixserverlib.FormatAll)
+		member, err := newLocalMembership(&cevent)
+		if err != nil {
+			return err
+		}
+		if member.Membership == gomatrixserverlib.Invite && member.Domain == s.cfg.Matrix.ServerName {
+			// localRoomMembers only adds joined members. An invite
+			// should also be pushed to the target user.
+			members = append(members, member)
+		}
+	}
+
 	log.WithFields(log.Fields{
 		"room_id":     event.RoomID(),
 		"num_members": len(members),
@@ -137,6 +150,28 @@ type localMembership struct {
 	gomatrixserverlib.MemberContent
 	UserID    string
 	Localpart string
+	Domain    gomatrixserverlib.ServerName
+}
+
+func newLocalMembership(event *gomatrixserverlib.ClientEvent) (*localMembership, error) {
+	if event.StateKey == nil {
+		return nil, fmt.Errorf("missing state_key")
+	}
+
+	var member localMembership
+	if err := json.Unmarshal(event.Content, &member.MemberContent); err != nil {
+		return nil, err
+	}
+
+	localpart, domain, err := gomatrixserverlib.SplitID('@', *event.StateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	member.UserID = *event.StateKey
+	member.Localpart = localpart
+	member.Domain = domain
+	return &member, nil
 }
 
 // localRoomMembers fetches the current local members of a room, and
@@ -157,35 +192,20 @@ func (s *OutputRoomEventConsumer) localRoomMembers(ctx context.Context, roomID s
 	var members []*localMembership
 	var ntotal int
 	for _, event := range res.JoinEvents {
-		if event.StateKey == nil {
-			continue
-		}
-
-		var member localMembership
-		if err := json.Unmarshal(event.Content, &member.MemberContent); err != nil {
+		member, err := newLocalMembership(&event)
+		if err != nil {
 			log.WithError(err).Errorf("Parsing MemberContent")
 			continue
 		}
 		if member.Membership != gomatrixserverlib.Join {
 			continue
 		}
+		if member.Domain != s.cfg.Matrix.ServerName {
+			continue
+		}
 
 		ntotal++
-
-		localpart, domain, err := gomatrixserverlib.SplitID('@', *event.StateKey)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"state_key": *event.StateKey,
-			}).WithError(err).Errorf("Unable to split MXID")
-			continue
-		}
-		if domain != s.cfg.Matrix.ServerName {
-			continue
-		}
-
-		member.UserID = *event.StateKey
-		member.Localpart = localpart
-		members = append(members, &member)
+		members = append(members, member)
 	}
 
 	return members, ntotal, nil
