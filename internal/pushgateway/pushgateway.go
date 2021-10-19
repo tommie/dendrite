@@ -27,6 +27,8 @@ type Notification struct {
 	Counts            *Counts         `json:"counts,omitempty"`
 	Devices           []*Device       `json:"devices"` // Required
 	EventID           string          `json:"event_id,omitempty"`
+	ID                string          `json:"id,omitempty"`         // Deprecated name for EventID.
+	Membership        string          `json:"membership,omitempty"` // UNSPEC: required for Sytest.
 	Prio              Prio            `json:"prio,omitempty"`
 	RoomAlias         string          `json:"room_alias,omitempty"`
 	RoomID            string          `json:"room_id,omitempty"`
@@ -43,8 +45,8 @@ type Counts struct {
 }
 
 type Device struct {
-	AppID     string                 `json:"app_id"` // Required
-	Data      map[string]interface{} `json:"data,omitempty"`
+	AppID     string                 `json:"app_id"`  // Required
+	Data      map[string]interface{} `json:"data"`    // Required. UNSPEC: Sytests require this to allow unknown keys.
 	PushKey   string                 `json:"pushkey"` // Required
 	PushKeyTS int64                  `json:"pushkey_ts,omitempty"`
 	Tweaks    map[string]interface{} `json:"tweaks,omitempty"`

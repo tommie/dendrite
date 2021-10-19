@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/matrix-org/dendrite/clientapi/auth/authtypes"
+	"github.com/matrix-org/dendrite/internal/pushrules"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/userapi/api"
-	"github.com/matrix-org/dendrite/userapi/storage/accounts/common"
 	"github.com/matrix-org/dendrite/userapi/storage/accounts/postgres/deltas"
 	"github.com/matrix-org/gomatrixserverlib"
 	"golang.org/x/crypto/bcrypt"
@@ -207,11 +207,12 @@ func (d *Database) createAccount(
 	if err = d.profiles.insertProfile(ctx, txn, localpart); err != nil {
 		return nil, err
 	}
-	pr, err := common.DefaultPushRules(localpart, string(d.serverName))
+	pushRuleSets := pushrules.DefaultAccountRuleSets(localpart, d.serverName)
+	prbs, err := json.Marshal(pushRuleSets)
 	if err != nil {
 		return nil, err
 	}
-	if err = d.accountDatas.insertAccountData(ctx, txn, localpart, "", "m.push_rules", pr); err != nil {
+	if err = d.accountDatas.insertAccountData(ctx, txn, localpart, "", "m.push_rules", json.RawMessage(prbs)); err != nil {
 		return nil, err
 	}
 	return account, nil

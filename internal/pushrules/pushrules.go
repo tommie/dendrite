@@ -1,5 +1,11 @@
 package pushrules
 
+// An AccountRuleSets carries the rule sets associated with an
+// account.
+type AccountRuleSets struct {
+	Global RuleSet `json:"global"` // Required
+}
+
 // A RuleSet contains all the various push rules for an
 // account. Listed in decreasing order of priority.
 type RuleSet struct {
@@ -43,6 +49,14 @@ type Rule struct {
 	// Condition.Pattern.
 	Pattern string `json:"pattern,omitempty"`
 }
+
+// Scope only has one valid value. See also AccountRuleSets.
+type Scope string
+
+const (
+	UnknownScope Scope = ""
+	GlobalScope  Scope = "global"
+)
 
 // Kind is the type of push rule. See also RuleSet.
 type Kind string
