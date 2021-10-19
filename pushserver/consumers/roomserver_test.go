@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/matrix-org/dendrite/internal/pushgateway"
+	"github.com/matrix-org/dendrite/internal/pushrules"
 	"github.com/matrix-org/dendrite/pushserver/api"
 	"github.com/matrix-org/dendrite/pushserver/storage"
 	rsapi "github.com/matrix-org/dendrite/roomserver/api"
@@ -151,6 +152,15 @@ func (s *fakePushserverInternalAPI) QueryPushers(ctx context.Context, req *api.Q
 			},
 		},
 	}
+	return nil
+}
+
+func (s *fakePushserverInternalAPI) QueryPushRules(ctx context.Context, req *api.QueryPushRulesRequest, res *api.QueryPushRulesResponse) error {
+	localpart, _, err := gomatrixserverlib.SplitID('@', req.UserID)
+	if err != nil {
+		return err
+	}
+	res.RuleSets = pushrules.DefaultAccountRuleSets(localpart, "example.org")
 	return nil
 }
 

@@ -144,7 +144,7 @@ func main() {
 	rsAPI.SetAppserviceAPI(asAPI)
 
 	pgClient := base.PushGatewayHTTPClient()
-	psAPI := pushserver.NewInternalAPI(base, pgClient, rsAPI)
+	psAPI := pushserver.NewInternalAPI(base, pgClient, rsAPI, userAPI)
 	if base.UseHTTPAPIs {
 		pushserver.AddInternalRoutes(base.InternalAPIMux, psAPI)
 		psAPI = base.PushServerHTTPClient()

@@ -23,7 +23,7 @@ import (
 
 func PushServer(base *setup.BaseDendrite, cfg *config.Dendrite, rsAPI roomserverAPI.RoomserverInternalAPI) {
 	pgClient := base.PushGatewayHTTPClient()
-	intAPI := pushserver.NewInternalAPI(base, pgClient, rsAPI)
+	intAPI := pushserver.NewInternalAPI(base, pgClient, rsAPI, base.UserAPIClient())
 
 	pushserver.AddInternalRoutes(base.InternalAPIMux, intAPI)
 

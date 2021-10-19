@@ -180,7 +180,7 @@ func main() {
 	}
 
 	pgClient := base.Base.PushGatewayHTTPClient()
-	psAPI := pushserver.NewInternalAPI(&base.Base, pgClient, rsAPI)
+	psAPI := pushserver.NewInternalAPI(&base.Base, pgClient, rsAPI, userAPI)
 
 	monolith := setup.Monolith{
 		Config:    base.Base.Cfg,
