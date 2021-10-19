@@ -71,7 +71,7 @@ func (s *OutputRoomEventConsumer) onMessage(msg *sarama.ConsumerMessage) error {
 
 	log.WithFields(log.Fields{
 		"event_type": output.Type,
-	}).Infof("Received message from room server: %#v", output)
+	}).Tracef("Received message from room server: %#v", output)
 
 	switch output.Type {
 	case rsapi.OutputTypeNewRoomEvent:
@@ -102,7 +102,7 @@ func (s *OutputRoomEventConsumer) onMessage(msg *sarama.ConsumerMessage) error {
 func (s *OutputRoomEventConsumer) processMessage(ctx context.Context, event *gomatrixserverlib.HeaderedEvent) error {
 	log.WithFields(log.Fields{
 		"event_type": event.Type(),
-	}).Infof("Received event from room server: %#v", event)
+	}).Tracef("Received event from room server: %#v", event)
 
 	members, roomSize, err := s.localRoomMembers(ctx, event.RoomID())
 	if err != nil {
@@ -126,7 +126,7 @@ func (s *OutputRoomEventConsumer) processMessage(ctx context.Context, event *gom
 		"room_id":     event.RoomID(),
 		"num_members": len(members),
 		"room_size":   roomSize,
-	}).Infof("Notifying push gateways")
+	}).Tracef("Notifying members")
 
 	// Notification.UserIsTarget is a per-member field, so we
 	// cannot group all users in a single request.
@@ -217,6 +217,10 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 	if err != nil {
 		return err
 	} else if !ok {
+		log.WithFields(log.Fields{
+			"room_id":   event.RoomID(),
+			"localpart": mem.Localpart,
+		}).Tracef("Push rule evaluation rejected the event")
 		return nil
 	}
 
@@ -228,8 +232,8 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 	log.WithFields(log.Fields{
 		"room_id":   event.RoomID(),
 		"localpart": mem.Localpart,
-		"num_urls":  len(devicesByURL),
-	}).Infof("Notifying push gateways")
+		"num_urls":  len(devicesByURLAndFormat),
+	}).Tracef("Notifying single member")
 
 	var rejected []*pushgateway.Device
 	for url, devices := range devicesByURL {
@@ -296,7 +300,7 @@ func (s *OutputRoomEventConsumer) evaluatePushRules(ctx context.Context, event *
 		"room_id":   event.RoomID(),
 		"localpart": mem.Localpart,
 		"rule_id":   rule.RuleID,
-	}).Infof("Matched a push rule")
+	}).Tracef("Matched a push rule")
 
 	a, tweaks, err := pushrules.ActionsToTweaks(rule.Actions)
 	if err != nil {
@@ -422,13 +426,20 @@ func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatri
 		"url":         url,
 		"localpart":   localpart,
 		"app_id0":     devices[0].AppID,
+		"pushkey":     devices[0].PushKey,
 		"num_devices": len(devices),
-	}).Infof("Notifying HTTP push gateway")
+	}).Debugf("Notifying HTTP push gateway")
 
 	var res pushgateway.NotifyResponse
 	if err := s.pgClient.Notify(ctx, url, req, &res); err != nil {
 		return nil, err
 	}
+
+	log.WithFields(log.Fields{
+		"url":          url,
+		"localpart":    localpart,
+		"num_rejected": len(res.Rejected),
+	}).Tracef("HTTP push gateway result")
 
 	if len(res.Rejected) == 0 {
 		return nil, nil
