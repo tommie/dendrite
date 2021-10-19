@@ -57,6 +57,11 @@ type Global struct {
 
 	// DNS caching options for all outbound HTTP requests
 	DNSCache DNSCacheOptions `yaml:"dns_cache"`
+
+	// HTTPClientTLSInsecureSkipVerify controls whether HTTP clients
+	// should verify X.509 certificates, or allow anything. Only for
+	// testing, with e.g. self-signed certificates.
+	HTTPClientTLSInsecureSkipVerify bool `yaml:"http_client_tls_insecure_skip_verify_for_testing"`
 }
 
 func (c *Global) Defaults() {

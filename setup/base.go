@@ -173,12 +173,21 @@ func NewBaseDendrite(cfg *config.Dendrite, componentName string, useHTTPAPIs boo
 			},
 		},
 	}
-	client := http.Client{Timeout: HTTPClientTimeout}
+	transport := *http.DefaultTransport.(*http.Transport)
+	if cfg.Global.HTTPClientTLSInsecureSkipVerify {
+		transport.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
 	if cfg.FederationSender.Proxy.Enabled {
-		client.Transport = &http.Transport{Proxy: http.ProxyURL(&url.URL{
+		transport.Proxy = http.ProxyURL(&url.URL{
 			Scheme: cfg.FederationSender.Proxy.Protocol,
 			Host:   fmt.Sprintf("%s:%d", cfg.FederationSender.Proxy.Host, cfg.FederationSender.Proxy.Port),
-		})}
+		})
+	}
+	client := http.Client{
+		Transport: &transport,
+		Timeout:   HTTPClientTimeout,
 	}
 
 	// Ideally we would only use SkipClean on routes which we know can allow '/' but due to
