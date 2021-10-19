@@ -560,3 +560,44 @@ Changing user-signing key notifies local users
 Pushers created with a different access token are deleted on password change
 Pushers created with a the same access token are not deleted on password change
 Can fetch a user's pushers
+Invites are pushed
+Can add global push rule for room
+Can add global push rule for sender
+Can add global push rule for override
+Can add global push rule for underride
+Can add global push rule for content
+New rules appear before old rules by default
+Can add global push rule before an existing rule
+Can add global push rule after an existing rule
+Can delete a push rule
+Can disable a push rule
+Adding the same push rule twice is idempotent
+Can change the actions of default rules
+Can change the actions of a user specified rule
+Adding a push rule wakes up an incremental /sync
+Disabling a push rule wakes up an incremental /sync
+Enabling a push rule wakes up an incremental /sync
+Setting actions for a push rule wakes up an incremental /sync
+Can enable/disable default rules
+Trying to add push rule with no scope fails with 400
+Trying to add push rule with invalid scope fails with 400
+Trying to add push rule with missing template fails with 400
+Trying to add push rule with missing rule_id fails with 400
+Trying to add push rule with empty rule_id fails with 400
+Trying to add push rule with invalid template fails with 400
+Trying to add push rule with rule_id with slashes fails with 400
+Trying to add push rule with override rule without conditions fails with 400
+Trying to add push rule with underride rule without conditions fails with 400
+Trying to add push rule with condition without kind fails with 400
+Trying to add push rule with content rule without pattern fails with 400
+Trying to add push rule with no actions fails with 400
+Trying to add push rule with invalid action fails with 400
+Trying to add push rule with invalid attr fails with 400
+Trying to add push rule with invalid value for enabled fails with 400
+Trying to get push rules with no trailing slash fails with 400
+Trying to get push rules with scope without trailing slash fails with 400
+Trying to get push rules with template without tailing slash fails with 400
+Trying to get push rules with unknown scope fails with 400
+Trying to get push rules with unknown template fails with 400
+Trying to get push rules with unknown attribute fails with 400
+Getting push rules doesn't corrupt the cache SYN-390
