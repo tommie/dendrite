@@ -3,6 +3,7 @@ package consumers
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -31,7 +32,11 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 	}
 	var rsAPI fakeRoomServerInternalAPI
 	var psAPI fakePushserverInternalAPI
-	var pgClient fakePushGatewayClient
+	var wg sync.WaitGroup
+	wg.Add(1)
+	pgClient := fakePushGatewayClient{
+		WG: &wg,
+	}
 	s := &OutputRoomEventConsumer{
 		cfg: &config.PushServer{
 			Matrix: &config.Global{
@@ -70,6 +75,9 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 		t.Fatalf("processMessage failed: %v", err)
 	}
 
+	t.Log("Waiting for backend calls to finish.")
+	wg.Wait()
+
 	if diff := cmp.Diff([]*rsapi.QueryMembershipsForRoomRequest{{JoinedOnly: true, RoomID: "!jEsUZKDJdhlrceRyVU:example.org"}}, rsAPI.Reqs); diff != "" {
 		t.Errorf("rsAPI.QueryMembershipsForRoom Reqs: +got -want:\n%s", diff)
 	}
@@ -78,8 +86,9 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 	}
 	if diff := cmp.Diff([]*pushgateway.NotifyRequest{{
 		Notification: pushgateway.Notification{
-			Type:   "m.room.message",
-			Counts: &pushgateway.Counts{},
+			Type:    "m.room.message",
+			Content: event.Content(),
+			Counts:  &pushgateway.Counts{},
 			Devices: []*pushgateway.Device{{
 				AppID:   "anappid",
 				PushKey: "apushkey",
@@ -88,7 +97,9 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 				},
 			}},
 			EventID: "$143273582443PhrSn:example.org",
+			ID:      "$143273582443PhrSn:example.org",
 			RoomID:  "!jEsUZKDJdhlrceRyVU:example.org",
+			Sender:  "@example:example.org",
 		},
 	}}, pgClient.Reqs); diff != "" {
 		t.Errorf("pgClient.NotifyHTTP Reqs: +got -want:\n%s", diff)
@@ -167,11 +178,15 @@ func (s *fakePushserverInternalAPI) QueryPushRules(ctx context.Context, req *api
 type fakePushGatewayClient struct {
 	pushgateway.Client
 
+	WG   *sync.WaitGroup
 	Reqs []*pushgateway.NotifyRequest
 }
 
 func (c *fakePushGatewayClient) Notify(ctx context.Context, url string, req *pushgateway.NotifyRequest, res *pushgateway.NotifyResponse) error {
 	c.Reqs = append(c.Reqs, req)
+	if c.WG != nil {
+		c.WG.Done()
+	}
 	*res = pushgateway.NotifyResponse{
 		Rejected: []string{
 			"apushkey",

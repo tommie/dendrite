@@ -224,7 +224,7 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 		return nil
 	}
 
-	devicesByURL, err := s.localPushDevices(ctx, mem.Localpart, tweaks)
+	devicesByURLAndFormat, err := s.localPushDevices(ctx, mem.Localpart, tweaks)
 	if err != nil {
 		return err
 	}
@@ -235,33 +235,50 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 		"num_urls":  len(devicesByURLAndFormat),
 	}).Tracef("Notifying single member")
 
-	var rejected []*pushgateway.Device
-	for url, devices := range devicesByURL {
-		log.WithFields(log.Fields{
-			"room_id":   event.RoomID(),
-			"localpart": mem.Localpart,
-			"url":       url,
-		}).Infof("Notifying push gateway")
+	// Push gateways are out of our control, and we cannot risk
+	// looking up the server on a misbehaving push gateway. Each user
+	// receives a goroutine now that all internal API calls have been
+	// made.
+	//
+	// TODO: think about bounding this to one per user, and what
+	// ordering guarantees we must provide.
+	go func() {
+		var rejected []*pushgateway.Device
+		for url, fmts := range devicesByURLAndFormat {
+			for format, devices := range fmts {
+				// TODO: support "email".
+				if !strings.HasPrefix(url, "http") {
+					continue
+				}
 
-		// TODO: support "email".
-		if !strings.HasPrefix(url, "http") {
-			continue
+				// UNSPEC: the specification suggests there can be
+				// more than one device per request. There is at least
+				// one Sytest that expects one HTTP request per
+				// device, rather than per URL. For now, we must
+				// notify each one separately.
+				for _, dev := range devices {
+					rej, err := s.notifyHTTP(ctx, event, url, format, []*pushgateway.Device{dev}, mem.Localpart)
+					if err != nil {
+						log.WithFields(log.Fields{
+							"event_id":  event.EventID(),
+							"localpart": mem.Localpart,
+						}).WithError(err).Errorf("Unable to notify HTTP pusher")
+						continue
+					}
+					rejected = append(rejected, rej...)
+				}
+			}
 		}
 
-		rej, err := s.notifyHTTP(ctx, event, url, devices, mem.Localpart)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"event_id":  event.EventID(),
-				"localpart": mem.Localpart,
-			}).WithError(err).Errorf("Unable to notify HTTP pusher")
-			continue
+		if len(rejected) > 0 {
+			if err := s.deleteRejectedPushers(ctx, rejected, mem.Localpart); err != nil {
+				log.WithFields(log.Fields{
+					"localpart":   mem.Localpart,
+					"num_pushers": len(rejected),
+				}).WithError(err).Errorf("Unable to delete rejected pushers")
+			}
 		}
-		rejected = append(rejected, rej...)
-	}
-
-	if len(rejected) > 0 {
-		return s.deleteRejectedPushers(ctx, rejected, mem.Localpart)
-	}
+	}()
 
 	return nil
 }
@@ -350,33 +367,38 @@ func (rse *ruleSetEvalContext) HasPowerLevel(userID, levelKey string) (bool, err
 	return true, nil
 }
 
-// localPushDevices pushes to the configured devices of a local user.
-func (s *OutputRoomEventConsumer) localPushDevices(ctx context.Context, localpart string, tweaks map[string]interface{}) (map[string][]*pushgateway.Device, error) {
+// localPushDevices pushes to the configured devices of a local
+// user. The map keys are [url][format].
+func (s *OutputRoomEventConsumer) localPushDevices(ctx context.Context, localpart string, tweaks map[string]interface{}) (map[string]map[string][]*pushgateway.Device, error) {
 	req := &api.QueryPushersRequest{Localpart: localpart}
 	var res api.QueryPushersResponse
 	if err := s.psAPI.QueryPushers(ctx, req, &res); err != nil {
 		return nil, err
 	}
 
-	devicesByURL := make(map[string][]*pushgateway.Device, len(res.Pushers))
+	devicesByURL := make(map[string]map[string][]*pushgateway.Device, len(res.Pushers))
 	for _, pusher := range res.Pushers {
-		var url string
+		var url, format string
 		data := pusher.Data
 		switch pusher.Kind {
 		case api.EmailKind:
 			url = "mailto:"
 
 		case api.HTTPKind:
-			if format := pusher.Data["format"]; format != nil && format != "event_id_only" {
+			// TODO: The spec says only event_id_only is supported,
+			// but Sytests assume "" means "full notification".
+			fmtIface := pusher.Data["format"]
+			var ok bool
+			format, ok = fmtIface.(string)
+			if ok && format != "event_id_only" {
 				log.WithFields(log.Fields{
 					"localpart": localpart,
 					"app_id":    pusher.AppID,
-				}).Errorf("Only data.format event_id_only is supported")
+				}).Errorf("Only data.format event_id_only or empty is supported")
 				continue
 			}
 
 			urlIface := pusher.Data["url"]
-			var ok bool
 			url, ok = urlIface.(string)
 			if !ok {
 				log.WithFields(log.Fields{
@@ -396,7 +418,10 @@ func (s *OutputRoomEventConsumer) localPushDevices(ctx context.Context, localpar
 			continue
 		}
 
-		devicesByURL[url] = append(devicesByURL[url], &pushgateway.Device{
+		if devicesByURL[url] == nil {
+			devicesByURL[url] = make(map[string][]*pushgateway.Device, 2)
+		}
+		devicesByURL[url][format] = append(devicesByURL[url][format], &pushgateway.Device{
 			AppID:   pusher.AppID,
 			Data:    data,
 			PushKey: pusher.PushKey,
@@ -408,20 +433,38 @@ func (s *OutputRoomEventConsumer) localPushDevices(ctx context.Context, localpar
 }
 
 // notifyHTTP performs a notificatation to a Push Gateway.
-func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, url string, devices []*pushgateway.Device, localpart string) ([]*pushgateway.Device, error) {
-	// This assumes that all devices have format==event_id_only, which
-	// is true as long as that's the only allowed format.
-	req := &pushgateway.NotifyRequest{
-		Notification: pushgateway.Notification{
-			Counts:  &pushgateway.Counts{},
-			Devices: devices,
-			EventID: event.EventID(),
-			RoomID:  event.RoomID(),
-			Type:    event.Type(),
-		},
-	}
-	if event.StateKey() != nil && *event.StateKey() == fmt.Sprintf("@%s:%s", localpart, s.cfg.Matrix.ServerName) {
-		req.Notification.UserIsTarget = true
+func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, url, format string, devices []*pushgateway.Device, localpart string) ([]*pushgateway.Device, error) {
+	var req pushgateway.NotifyRequest
+	switch format {
+	case "event_id_only":
+		req = pushgateway.NotifyRequest{
+			Notification: pushgateway.Notification{
+				Counts:  &pushgateway.Counts{},
+				Devices: devices,
+				EventID: event.EventID(),
+				RoomID:  event.RoomID(),
+			},
+		}
+
+	default:
+		req = pushgateway.NotifyRequest{
+			Notification: pushgateway.Notification{
+				Content: event.Content(),
+				Counts:  &pushgateway.Counts{},
+				Devices: devices,
+				EventID: event.EventID(),
+				ID:      event.EventID(),
+				RoomID:  event.RoomID(),
+				Sender:  event.Sender(),
+				Type:    event.Type(),
+			},
+		}
+		if mem, err := event.Membership(); err == nil {
+			req.Notification.Membership = mem
+		}
+		if event.StateKey() != nil && *event.StateKey() == fmt.Sprintf("@%s:%s", localpart, s.cfg.Matrix.ServerName) {
+			req.Notification.UserIsTarget = true
+		}
 	}
 
 	log.WithFields(log.Fields{
@@ -433,7 +476,7 @@ func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatri
 	}).Debugf("Notifying HTTP push gateway")
 
 	var res pushgateway.NotifyResponse
-	if err := s.pgClient.Notify(ctx, url, req, &res); err != nil {
+	if err := s.pgClient.Notify(ctx, url, &req, &res); err != nil {
 		return nil, err
 	}
 
