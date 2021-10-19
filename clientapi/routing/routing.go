@@ -529,33 +529,141 @@ func Setup(
 		}),
 	).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
 
-	r0mux.Handle("/pushrules/",
-		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
-			const pushRulesType = "m.push_rules"
+	// Push rules
 
-			// TODO: Implement push rules API
-			dataReq := userapi.QueryAccountDataRequest{
-				UserID:   device.UserID,
-				DataType: pushRulesType,
-			}
-			var dataRes userapi.QueryAccountDataResponse
-			if err := userAPI.QueryAccountData(req.Context(), &dataReq, &dataRes); err != nil {
-				util.GetLogger(req.Context()).WithError(err).Error("userAPI.QueryAccountData failed")
-				return util.ErrorResponse(err)
-			}
-			data, ok := dataRes.GlobalAccountData[pushRulesType]
-			if !ok {
-				return util.JSONResponse{
-					Code: http.StatusNotFound,
-					JSON: jsonerror.NotFound("data not found"),
-				}
-			}
+	r0mux.Handle("/pushrules",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
 			return util.JSONResponse{
-				Code: http.StatusOK,
-				JSON: data,
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidArgumentValue("missing trailing slash"),
 			}
 		}),
 	).Methods(http.MethodGet, http.MethodOptions)
+
+	r0mux.Handle("/pushrules/",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			return GetAllPushRules(req.Context(), device, psAPI)
+		}),
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	r0mux.Handle("/pushrules/",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidArgumentValue("scope, kind and rule ID must be specified"),
+			}
+		}),
+	).Methods(http.MethodPut)
+
+	r0mux.Handle("/pushrules/{scope}/",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+			if err != nil {
+				return util.ErrorResponse(err)
+			}
+			return GetPushRulesByScope(req.Context(), vars["scope"], device, psAPI)
+		}),
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	r0mux.Handle("/pushrules/{scope}",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidArgumentValue("missing trailing slash after scope"),
+			}
+		}),
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	r0mux.Handle("/pushrules/{scope:[^/]+/?}",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidArgumentValue("kind and rule ID must be specified"),
+			}
+		}),
+	).Methods(http.MethodPut)
+
+	r0mux.Handle("/pushrules/{scope}/{kind}/",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+			if err != nil {
+				return util.ErrorResponse(err)
+			}
+			return GetPushRulesByKind(req.Context(), vars["scope"], vars["kind"], device, psAPI)
+		}),
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	r0mux.Handle("/pushrules/{scope}/{kind}",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidArgumentValue("missing trailing slash after kind"),
+			}
+		}),
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	r0mux.Handle("/pushrules/{scope}/{kind:[^/]+/?}",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			return util.JSONResponse{
+				Code: http.StatusBadRequest,
+				JSON: jsonerror.InvalidArgumentValue("rule ID must be specified"),
+			}
+		}),
+	).Methods(http.MethodPut)
+
+	r0mux.Handle("/pushrules/{scope}/{kind}/{ruleID}",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+			if err != nil {
+				return util.ErrorResponse(err)
+			}
+			return GetPushRuleByRuleID(req.Context(), vars["scope"], vars["kind"], vars["ruleID"], device, psAPI)
+		}),
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	r0mux.Handle("/pushrules/{scope}/{kind}/{ruleID}",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			if r := rateLimits.rateLimit(req); r != nil {
+				return *r
+			}
+			vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+			if err != nil {
+				return util.ErrorResponse(err)
+			}
+			query := req.URL.Query()
+			return PutPushRuleByRuleID(req.Context(), vars["scope"], vars["kind"], vars["ruleID"], query.Get("after"), query.Get("before"), req.Body, device, psAPI)
+		}),
+	).Methods(http.MethodPut)
+
+	r0mux.Handle("/pushrules/{scope}/{kind}/{ruleID}",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+			if err != nil {
+				return util.ErrorResponse(err)
+			}
+			return DeletePushRuleByRuleID(req.Context(), vars["scope"], vars["kind"], vars["ruleID"], device, psAPI)
+		}),
+	).Methods(http.MethodDelete)
+
+	r0mux.Handle("/pushrules/{scope}/{kind}/{ruleID}/{attr}",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+			if err != nil {
+				return util.ErrorResponse(err)
+			}
+			return GetPushRuleAttrByRuleID(req.Context(), vars["scope"], vars["kind"], vars["ruleID"], vars["attr"], device, psAPI)
+		}),
+	).Methods(http.MethodGet, http.MethodOptions)
+
+	r0mux.Handle("/pushrules/{scope}/{kind}/{ruleID}/{attr}",
+		httputil.MakeAuthAPI("push_rules", userAPI, func(req *http.Request, device *userapi.Device) util.JSONResponse {
+			vars, err := httputil.URLDecodeMapValues(mux.Vars(req))
+			if err != nil {
+				return util.ErrorResponse(err)
+			}
+			return PutPushRuleAttrByRuleID(req.Context(), vars["scope"], vars["kind"], vars["ruleID"], vars["attr"], req.Body, device, psAPI)
+		}),
+	).Methods(http.MethodPut)
 
 	// Element user settings
 
