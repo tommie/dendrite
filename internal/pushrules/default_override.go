@@ -24,10 +24,11 @@ const (
 
 var (
 	mRuleMasterDefinition = Rule{
-		RuleID:  MRuleMaster,
-		Default: true,
-		Enabled: false,
-		Actions: []*Action{{Kind: DontNotifyAction}},
+		RuleID:     MRuleMaster,
+		Default:    true,
+		Enabled:    false,
+		Conditions: []*Condition{},
+		Actions:    []*Action{{Kind: DontNotifyAction}},
 	}
 	mRuleSuppressNoticesDefinition = Rule{
 		RuleID:  MRuleSuppressNotices,

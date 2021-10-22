@@ -27,7 +27,9 @@ func ValidateRule(kind Kind, rule *Rule) []error {
 
 	switch kind {
 	case OverrideKind, UnderrideKind:
-		if len(rule.Conditions) == 0 {
+		// The empty list is allowed, but for JSON-encoding reasons,
+		// it must not be nil.
+		if rule.Conditions == nil {
 			errs = append(errs, fmt.Errorf("missing rule conditions"))
 		}
 

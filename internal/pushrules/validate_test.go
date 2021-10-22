@@ -53,6 +53,7 @@ func TestValidateRulePositives(t *testing.T) {
 		{"roomNoCondition", RoomKind, Rule{}, "missing rule conditions"},
 		{"senderNoCondition", SenderKind, Rule{}, "missing rule conditions"},
 		{"overrideNoPattern", OverrideKind, Rule{}, "missing content rule pattern"},
+		{"overrideEmptyConditions", OverrideKind, Rule{Conditions: []*Condition{}}, "missing rule conditions"},
 	}
 	for _, tst := range tsts {
 		t.Run(tst.Name, func(t *testing.T) {
