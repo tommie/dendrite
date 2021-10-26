@@ -62,8 +62,8 @@ func (rse *RuleSetEvaluator) MatchEvent(event *gomatrixserverlib.Event) (*Rule, 
 	// The most reasonable interpretation is that default overrides
 	// still have lower priority than user content rules, so we
 	// iterate twice.
-	for _, defRules := range []bool{false, true} {
-		for _, rsat := range rse.ruleSet {
+	for _, rsat := range rse.ruleSet {
+		for _, defRules := range []bool{false, true} {
 			for _, rule := range rsat.Rules {
 				if rule.Default != defRules {
 					continue

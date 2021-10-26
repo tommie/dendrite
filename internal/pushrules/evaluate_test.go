@@ -32,6 +32,7 @@ func TestRuleSetEvaluatorMatchEvent(t *testing.T) {
 		{"empty", RuleSet{}, nil},
 		{"defaultCanWin", RuleSet{Override: []*Rule{defaultEnabled}}, defaultEnabled},
 		{"userWins", RuleSet{Override: []*Rule{defaultEnabled, userEnabled}}, userEnabled},
+		{"defaultOverrideWins", RuleSet{Override: []*Rule{defaultEnabled}, Underride: []*Rule{userEnabled}}, defaultEnabled},
 		{"overrideContent", RuleSet{Override: []*Rule{userEnabled}, Content: []*Rule{userEnabled2}}, userEnabled},
 		{"overrideRoom", RuleSet{Override: []*Rule{userEnabled}, Room: []*Rule{userEnabled2}}, userEnabled},
 		{"overrideSender", RuleSet{Override: []*Rule{userEnabled}, Sender: []*Rule{userEnabled2}}, userEnabled},
