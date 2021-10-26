@@ -606,3 +606,4 @@ Rooms with many users are correctly pushed
 Don't get pushed for rooms you've muted
 Rejected events are not pushed
 Test that rejected pushers are removed.
+Rooms with canonical alias are correctly named in pushed

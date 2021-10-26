@@ -123,6 +123,7 @@ func (s *OutputRoomEventConsumer) processMessage(ctx context.Context, event *gom
 		}
 	}
 
+	// TODO: run in parallel with localRoomMembers.
 	roomName, err := s.roomName(ctx, event)
 	if err != nil {
 		return err
@@ -219,26 +220,61 @@ func (s *OutputRoomEventConsumer) localRoomMembers(ctx context.Context, roomID s
 }
 
 // roomName returns the name in the event (if type==m.room.name), or
-// looks it up in roomserver. Returns an empty string if the room has
-// no name.
+// looks it up in roomserver. If there is no name,
+// m.room.canonical_alias is consulted. Returns an empty string if the
+// room has no name.
 func (s *OutputRoomEventConsumer) roomName(ctx context.Context, event *gomatrixserverlib.HeaderedEvent) (string, error) {
-	if event.Type() != gomatrixserverlib.MRoomName {
-		req := &rsapi.QueryCurrentStateRequest{
-			RoomID:      event.RoomID(),
-			StateTuples: []gomatrixserverlib.StateKeyTuple{roomNameTuple},
-		}
-		var res rsapi.QueryCurrentStateResponse
-
-		if err := s.rsAPI.QueryCurrentState(ctx, req, &res); err != nil {
+	if event.Type() == gomatrixserverlib.MRoomName {
+		name, err := unmarshalRoomName(event)
+		if err != nil {
 			return "", err
 		}
 
-		event = res.StateEvents[roomNameTuple]
-		if event == nil {
-			return "", nil
+		if name != "" {
+			return name, nil
 		}
 	}
 
+	req := &rsapi.QueryCurrentStateRequest{
+		RoomID:      event.RoomID(),
+		StateTuples: []gomatrixserverlib.StateKeyTuple{roomNameTuple, canonicalAliasTuple},
+	}
+	var res rsapi.QueryCurrentStateResponse
+
+	if err := s.rsAPI.QueryCurrentState(ctx, req, &res); err != nil {
+		return "", err
+	}
+
+	event = res.StateEvents[roomNameTuple]
+	if event != nil {
+		return unmarshalRoomName(event)
+	}
+
+	if event.Type() == gomatrixserverlib.MRoomCanonicalAlias {
+		alias, err := unmarshalCanonicalAlias(event)
+		if err != nil {
+			return "", err
+		}
+
+		if alias != "" {
+			return alias, nil
+		}
+	}
+
+	event = res.StateEvents[canonicalAliasTuple]
+	if event != nil {
+		return unmarshalCanonicalAlias(event)
+	}
+
+	return "", nil
+}
+
+var (
+	canonicalAliasTuple = gomatrixserverlib.StateKeyTuple{EventType: gomatrixserverlib.MRoomCanonicalAlias}
+	roomNameTuple       = gomatrixserverlib.StateKeyTuple{EventType: gomatrixserverlib.MRoomName}
+)
+
+func unmarshalRoomName(event *gomatrixserverlib.HeaderedEvent) (string, error) {
 	var nc eventutil.NameContent
 	if err := json.Unmarshal(event.Content(), &nc); err != nil {
 		return "", fmt.Errorf("unmarshaling NameContent: %w", err)
@@ -247,7 +283,14 @@ func (s *OutputRoomEventConsumer) roomName(ctx context.Context, event *gomatrixs
 	return nc.Name, nil
 }
 
-var roomNameTuple = gomatrixserverlib.StateKeyTuple{EventType: gomatrixserverlib.MRoomName}
+func unmarshalCanonicalAlias(event *gomatrixserverlib.HeaderedEvent) (string, error) {
+	var cac eventutil.CanonicalAliasContent
+	if err := json.Unmarshal(event.Content(), &cac); err != nil {
+		return "", fmt.Errorf("unmarshaling CanonicalAliasContent: %w", err)
+	}
+
+	return cac.Alias, nil
+}
 
 // notifyLocal finds the right push actions for a local user, given an event.
 func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, mem *localMembership, roomSize int, roomName string) error {
