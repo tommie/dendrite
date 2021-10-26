@@ -123,6 +123,7 @@ func (s *OutputRoomEventConsumer) processMessage(ctx context.Context, event *gom
 	}
 
 	log.WithFields(log.Fields{
+		"event_id":    event.EventID(),
 		"room_id":     event.RoomID(),
 		"num_members": len(members),
 		"room_size":   roomSize,
@@ -218,6 +219,7 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 		return err
 	} else if !ok {
 		log.WithFields(log.Fields{
+			"event_id":  event.EventID(),
 			"room_id":   event.RoomID(),
 			"localpart": mem.Localpart,
 		}).Tracef("Push rule evaluation rejected the event")
@@ -229,7 +231,12 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 		return err
 	}
 
+	if err := s.db.InsertNotification(ctx, mem.Localpart, event.EventID(), &api.Notification{}); err != nil {
+		return err
+	}
+
 	log.WithFields(log.Fields{
+		"event_id":  event.EventID(),
 		"room_id":   event.RoomID(),
 		"localpart": mem.Localpart,
 		"num_urls":  len(devicesByURLAndFormat),
@@ -315,16 +322,18 @@ func (s *OutputRoomEventConsumer) evaluatePushRules(ctx context.Context, event *
 		return false, nil, err
 	}
 
-	log.WithFields(log.Fields{
-		"room_id":   event.RoomID(),
-		"localpart": mem.Localpart,
-		"rule_id":   rule.RuleID,
-	}).Tracef("Matched a push rule")
-
 	a, tweaks, err := pushrules.ActionsToTweaks(rule.Actions)
 	if err != nil {
 		return false, nil, err
 	}
+
+	log.WithFields(log.Fields{
+		"event_id":  event.EventID(),
+		"room_id":   event.RoomID(),
+		"localpart": mem.Localpart,
+		"rule_id":   rule.RuleID,
+		"action":    a,
+	}).Tracef("Matched a push rule")
 
 	// TODO: support coalescing.
 	return a == pushrules.NotifyAction || a == pushrules.CoalesceAction, tweaks, nil
@@ -468,6 +477,7 @@ func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatri
 	}
 
 	log.WithFields(log.Fields{
+		"event_id":    event.EventID(),
 		"url":         url,
 		"localpart":   localpart,
 		"app_id0":     devices[0].AppID,
@@ -481,6 +491,7 @@ func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatri
 	}
 
 	log.WithFields(log.Fields{
+		"event_id":     event.EventID(),
 		"url":          url,
 		"localpart":    localpart,
 		"num_rejected": len(res.Rejected),
