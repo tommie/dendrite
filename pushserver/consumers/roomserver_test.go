@@ -78,7 +78,7 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 	t.Log("Waiting for backend calls to finish.")
 	wg.Wait()
 
-	if diff := cmp.Diff([]*rsapi.QueryMembershipsForRoomRequest{{JoinedOnly: true, RoomID: "!jEsUZKDJdhlrceRyVU:example.org"}}, rsAPI.Reqs); diff != "" {
+	if diff := cmp.Diff([]*rsapi.QueryMembershipsForRoomRequest{{JoinedOnly: true, RoomID: "!jEsUZKDJdhlrceRyVU:example.org"}}, rsAPI.MembershipReqs); diff != "" {
 		t.Errorf("rsAPI.QueryMembershipsForRoom Reqs: +got -want:\n%s", diff)
 	}
 	if diff := cmp.Diff([]*api.QueryPushersRequest{{Localpart: "alice"}}, psAPI.Reqs); diff != "" {
@@ -96,10 +96,11 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 					"extra": "someextra",
 				},
 			}},
-			EventID: "$143273582443PhrSn:example.org",
-			ID:      "$143273582443PhrSn:example.org",
-			RoomID:  "!jEsUZKDJdhlrceRyVU:example.org",
-			Sender:  "@example:example.org",
+			EventID:  "$143273582443PhrSn:example.org",
+			ID:       "$143273582443PhrSn:example.org",
+			RoomID:   "!jEsUZKDJdhlrceRyVU:example.org",
+			RoomName: "aname",
+			Sender:   "@example:example.org",
 		},
 	}}, pgClient.Reqs); diff != "" {
 		t.Errorf("pgClient.NotifyHTTP Reqs: +got -want:\n%s", diff)
@@ -109,7 +110,31 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 type fakeRoomServerInternalAPI struct {
 	rsapi.RoomserverInternalAPI
 
-	Reqs []*rsapi.QueryMembershipsForRoomRequest
+	MembershipReqs []*rsapi.QueryMembershipsForRoomRequest
+}
+
+func (s *fakeRoomServerInternalAPI) QueryCurrentState(
+	ctx context.Context,
+	req *rsapi.QueryCurrentStateRequest,
+	res *rsapi.QueryCurrentStateResponse,
+) error {
+	*res = rsapi.QueryCurrentStateResponse{
+		StateEvents: map[gomatrixserverlib.StateKeyTuple]*gomatrixserverlib.HeaderedEvent{
+			roomNameTuple: mustParseHeaderedEventJSON(`{
+  "_room_version": "7",
+  "content": {
+    "name": "aname"
+  },
+  "event_id": "$3957tyerfgewrf382:example.org",
+  "origin_server_ts": 1432735824652,
+  "room_id": "!jEsUZKDJdhlrceRyVU:example.org",
+  "sender": "@example:example.org",
+  "state_key": "@alice:example.org",
+  "type": "m.room.name"
+}`),
+		},
+	}
+	return nil
 }
 
 func (s *fakeRoomServerInternalAPI) QueryMembershipsForRoom(
@@ -117,7 +142,7 @@ func (s *fakeRoomServerInternalAPI) QueryMembershipsForRoom(
 	req *rsapi.QueryMembershipsForRoomRequest,
 	res *rsapi.QueryMembershipsForRoomResponse,
 ) error {
-	s.Reqs = append(s.Reqs, req)
+	s.MembershipReqs = append(s.MembershipReqs, req)
 	*res = rsapi.QueryMembershipsForRoomResponse{
 		JoinEvents: []gomatrixserverlib.ClientEvent{
 			mustParseClientEventJSON(`{
@@ -209,4 +234,12 @@ func mustParseClientEventJSON(s string) gomatrixserverlib.ClientEvent {
 		panic(err)
 	}
 	return ev
+}
+
+func mustParseHeaderedEventJSON(s string) *gomatrixserverlib.HeaderedEvent {
+	var ev gomatrixserverlib.HeaderedEvent
+	if err := json.Unmarshal([]byte(s), &ev); err != nil {
+		panic(err)
+	}
+	return &ev
 }

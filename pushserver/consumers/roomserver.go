@@ -8,6 +8,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/matrix-org/dendrite/internal"
+	"github.com/matrix-org/dendrite/internal/eventutil"
 	"github.com/matrix-org/dendrite/internal/pushgateway"
 	"github.com/matrix-org/dendrite/internal/pushrules"
 	"github.com/matrix-org/dendrite/pushserver/api"
@@ -122,6 +123,11 @@ func (s *OutputRoomEventConsumer) processMessage(ctx context.Context, event *gom
 		}
 	}
 
+	roomName, err := s.roomName(ctx, event)
+	if err != nil {
+		return err
+	}
+
 	log.WithFields(log.Fields{
 		"event_id":    event.EventID(),
 		"room_id":     event.RoomID(),
@@ -136,7 +142,7 @@ func (s *OutputRoomEventConsumer) processMessage(ctx context.Context, event *gom
 	// removing it means we can send all notifications to
 	// e.g. Element's Push gateway in one go.
 	for _, mem := range members {
-		if err := s.notifyLocal(ctx, event, mem, roomSize); err != nil {
+		if err := s.notifyLocal(ctx, event, mem, roomSize, roomName); err != nil {
 			log.WithFields(log.Fields{
 				"localpart": mem.Localpart,
 			}).WithError(err).Errorf("Unable to evaluate push rules")
@@ -212,8 +218,39 @@ func (s *OutputRoomEventConsumer) localRoomMembers(ctx context.Context, roomID s
 	return members, ntotal, nil
 }
 
+// roomName returns the name in the event (if type==m.room.name), or
+// looks it up in roomserver. Returns an empty string if the room has
+// no name.
+func (s *OutputRoomEventConsumer) roomName(ctx context.Context, event *gomatrixserverlib.HeaderedEvent) (string, error) {
+	if event.Type() != gomatrixserverlib.MRoomName {
+		req := &rsapi.QueryCurrentStateRequest{
+			RoomID:      event.RoomID(),
+			StateTuples: []gomatrixserverlib.StateKeyTuple{roomNameTuple},
+		}
+		var res rsapi.QueryCurrentStateResponse
+
+		if err := s.rsAPI.QueryCurrentState(ctx, req, &res); err != nil {
+			return "", err
+		}
+
+		event = res.StateEvents[roomNameTuple]
+		if event == nil {
+			return "", nil
+		}
+	}
+
+	var nc eventutil.NameContent
+	if err := json.Unmarshal(event.Content(), &nc); err != nil {
+		return "", fmt.Errorf("unmarshaling NameContent: %w", err)
+	}
+
+	return nc.Name, nil
+}
+
+var roomNameTuple = gomatrixserverlib.StateKeyTuple{EventType: gomatrixserverlib.MRoomName}
+
 // notifyLocal finds the right push actions for a local user, given an event.
-func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, mem *localMembership, roomSize int) error {
+func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, mem *localMembership, roomSize int, roomName string) error {
 	ok, tweaks, err := s.evaluatePushRules(ctx, event, mem, roomSize)
 	if err != nil {
 		return err
@@ -264,7 +301,7 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 				// device, rather than per URL. For now, we must
 				// notify each one separately.
 				for _, dev := range devices {
-					rej, err := s.notifyHTTP(ctx, event, url, format, []*pushgateway.Device{dev}, mem.Localpart)
+					rej, err := s.notifyHTTP(ctx, event, url, format, []*pushgateway.Device{dev}, mem.Localpart, roomName)
 					if err != nil {
 						log.WithFields(log.Fields{
 							"event_id":  event.EventID(),
@@ -442,7 +479,7 @@ func (s *OutputRoomEventConsumer) localPushDevices(ctx context.Context, localpar
 }
 
 // notifyHTTP performs a notificatation to a Push Gateway.
-func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, url, format string, devices []*pushgateway.Device, localpart string) ([]*pushgateway.Device, error) {
+func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, url, format string, devices []*pushgateway.Device, localpart, roomName string) ([]*pushgateway.Device, error) {
 	var req pushgateway.NotifyRequest
 	switch format {
 	case "event_id_only":
@@ -458,14 +495,15 @@ func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatri
 	default:
 		req = pushgateway.NotifyRequest{
 			Notification: pushgateway.Notification{
-				Content: event.Content(),
-				Counts:  &pushgateway.Counts{},
-				Devices: devices,
-				EventID: event.EventID(),
-				ID:      event.EventID(),
-				RoomID:  event.RoomID(),
-				Sender:  event.Sender(),
-				Type:    event.Type(),
+				Content:  event.Content(),
+				Counts:   &pushgateway.Counts{},
+				Devices:  devices,
+				EventID:  event.EventID(),
+				ID:       event.EventID(),
+				RoomID:   event.RoomID(),
+				RoomName: roomName,
+				Sender:   event.Sender(),
+				Type:     event.Type(),
 			},
 		}
 		if mem, err := event.Membership(); err == nil {
