@@ -28,10 +28,11 @@ import (
 )
 
 type notificationsStatements struct {
-	insertStmt     *sql.Stmt
-	deleteUpToStmt *sql.Stmt
-	updateReadStmt *sql.Stmt
-	selectStmt     *sql.Stmt
+	insertStmt      *sql.Stmt
+	deleteUpToStmt  *sql.Stmt
+	updateReadStmt  *sql.Stmt
+	selectStmt      *sql.Stmt
+	selectCountStmt *sql.Stmt
 }
 
 func prepareNotificationsTable(db *sql.DB) (tables.Notifications, error) {
@@ -42,6 +43,7 @@ func prepareNotificationsTable(db *sql.DB) (tables.Notifications, error) {
 		{&s.deleteUpToStmt, deleteNotificationsUpToSQL},
 		{&s.updateReadStmt, updateNotificationReadSQL},
 		{&s.selectStmt, selectNotificationSQL},
+		{&s.selectCountStmt, selectNotificationCountSQL},
 	}.Prepare(db)
 }
 
@@ -168,4 +170,33 @@ func (s *notificationsStatements) Select(ctx context.Context, localpart string, 
 		}
 	}
 	return notifs, maxID, rows.Err()
+}
+
+const selectNotificationCountSQL = `SELECT COUNT(*)
+FROM pushserver_notifications
+WHERE
+  localpart = $1 AND
+  (
+    (($2 & 1) <> 0 AND highlight) OR
+    (($2 & 2) <> 0 AND NOT highlight)
+  ) AND
+  NOT read`
+
+func (s *notificationsStatements) SelectCount(ctx context.Context, localpart string, filter tables.NotificationFilter) (int64, error) {
+	rows, err := s.selectCountStmt.QueryContext(ctx, localpart, uint32(filter))
+
+	if err != nil {
+		return 0, err
+	}
+	defer internal.CloseAndLogIfError(ctx, rows, "notifications.Select: rows.Close() failed")
+
+	for rows.Next() {
+		var count int64
+		if err := rows.Scan(&count); err != nil {
+			return 0, err
+		}
+
+		return count, nil
+	}
+	return 0, rows.Err()
 }

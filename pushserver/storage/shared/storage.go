@@ -49,6 +49,10 @@ func (d *Database) GetNotifications(ctx context.Context, localpart string, fromI
 	return d.notifications.Select(ctx, localpart, fromID, limit, filter)
 }
 
+func (d *Database) GetNotificationCount(ctx context.Context, localpart string, filter tables.NotificationFilter) (int64, error) {
+	return d.notifications.SelectCount(ctx, localpart, filter)
+}
+
 func (d *Database) CreatePusher(
 	ctx context.Context, p api.Pusher, localpart string,
 ) error {

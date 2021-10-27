@@ -14,6 +14,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/pushrules"
 	"github.com/matrix-org/dendrite/pushserver/api"
 	"github.com/matrix-org/dendrite/pushserver/storage"
+	"github.com/matrix-org/dendrite/pushserver/storage/tables"
 	rsapi "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/setup/process"
@@ -334,11 +335,18 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 		return err
 	}
 
+	// We do this after InsertNotification. Thus, this should always return >=1.
+	userNumUnreadNotifs, err := s.db.GetNotificationCount(ctx, mem.Localpart, tables.AllNotifications)
+	if err != nil {
+		return err
+	}
+
 	log.WithFields(log.Fields{
-		"event_id":  event.EventID(),
-		"room_id":   event.RoomID(),
-		"localpart": mem.Localpart,
-		"num_urls":  len(devicesByURLAndFormat),
+		"event_id":   event.EventID(),
+		"room_id":    event.RoomID(),
+		"localpart":  mem.Localpart,
+		"num_urls":   len(devicesByURLAndFormat),
+		"num_unread": userNumUnreadNotifs,
 	}).Tracef("Notifying single member")
 
 	// Push gateways are out of our control, and we cannot risk
@@ -363,7 +371,7 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 				// device, rather than per URL. For now, we must
 				// notify each one separately.
 				for _, dev := range devices {
-					rej, err := s.notifyHTTP(ctx, event, url, format, []*pushgateway.Device{dev}, mem.Localpart, roomName)
+					rej, err := s.notifyHTTP(ctx, event, url, format, []*pushgateway.Device{dev}, mem.Localpart, roomName, int(userNumUnreadNotifs))
 					if err != nil {
 						log.WithFields(log.Fields{
 							"event_id":  event.EventID(),
@@ -538,7 +546,7 @@ func (s *OutputRoomEventConsumer) localPushDevices(ctx context.Context, localpar
 }
 
 // notifyHTTP performs a notificatation to a Push Gateway.
-func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, url, format string, devices []*pushgateway.Device, localpart, roomName string) ([]*pushgateway.Device, error) {
+func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, url, format string, devices []*pushgateway.Device, localpart, roomName string, userNumUnreadNotifs int) ([]*pushgateway.Device, error) {
 	var req pushgateway.NotifyRequest
 	switch format {
 	case "event_id_only":
@@ -554,8 +562,10 @@ func (s *OutputRoomEventConsumer) notifyHTTP(ctx context.Context, event *gomatri
 	default:
 		req = pushgateway.NotifyRequest{
 			Notification: pushgateway.Notification{
-				Content:  event.Content(),
-				Counts:   &pushgateway.Counts{},
+				Content: event.Content(),
+				Counts: &pushgateway.Counts{
+					Unread: userNumUnreadNotifs,
+				},
 				Devices:  devices,
 				EventID:  event.EventID(),
 				ID:       event.EventID(),

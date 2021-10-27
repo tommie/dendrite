@@ -19,6 +19,7 @@ type Database interface {
 	DeleteNotificationsUpTo(ctx context.Context, localpart, roomID, upToEventID string) error
 	SetNotificationsRead(ctx context.Context, localpart, roomID, upToEventID string, b bool) error
 	GetNotifications(ctx context.Context, localpart string, fromID int64, limit int, filter NotificationFilter) ([]*api.Notification, int64, error)
+	GetNotificationCount(ctx context.Context, localpart string, filter NotificationFilter) (int64, error)
 }
 
 type NotificationFilter = tables.NotificationFilter

@@ -88,7 +88,9 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 		Notification: pushgateway.Notification{
 			Type:    "m.room.message",
 			Content: event.Content(),
-			Counts:  &pushgateway.Counts{},
+			Counts: &pushgateway.Counts{
+				Unread: 1,
+			},
 			Devices: []*pushgateway.Device{{
 				AppID:   "anappid",
 				PushKey: "apushkey",

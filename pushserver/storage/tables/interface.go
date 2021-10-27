@@ -27,6 +27,7 @@ type Notifications interface {
 	DeleteUpTo(ctx context.Context, localpart, roomID, eventID string) error
 	UpdateRead(ctx context.Context, localpart, roomID, eventID string, v bool) error
 	Select(ctx context.Context, localpart string, fromID int64, limit int, filter NotificationFilter) ([]*api.Notification, int64, error)
+	SelectCount(ctx context.Context, localpart string, filter NotificationFilter) (int64, error)
 }
 
 type NotificationFilter uint32
