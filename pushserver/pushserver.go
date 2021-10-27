@@ -2,12 +2,12 @@ package pushserver
 
 import (
 	"github.com/gorilla/mux"
-	"github.com/matrix-org/dendrite/clientapi/producers"
 	"github.com/matrix-org/dendrite/internal/pushgateway"
 	"github.com/matrix-org/dendrite/pushserver/api"
 	"github.com/matrix-org/dendrite/pushserver/consumers"
 	"github.com/matrix-org/dendrite/pushserver/internal"
 	"github.com/matrix-org/dendrite/pushserver/inthttp"
+	"github.com/matrix-org/dendrite/pushserver/producers"
 	"github.com/matrix-org/dendrite/pushserver/storage"
 	roomserverAPI "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup"
@@ -40,14 +40,14 @@ func NewInternalAPI(
 		logrus.WithError(err).Panicf("failed to connect to push server db")
 	}
 
-	// TODO: user API should handle syncs for account data. Right now,
-	// it's handled by clientapi, and hence uses its topic. When user
-	// API handles it for all account data, we can remove it from
-	// here.
 	_, producer := kafka.SetupConsumerProducer(&cfg.Matrix.Kafka)
 	syncProducer := &producers.SyncAPIProducer{
 		Producer: producer,
-		Topic:    cfg.Matrix.Kafka.TopicFor(config.TopicOutputClientData),
+		// TODO: user API should handle syncs for account data. Right now,
+		// it's handled by clientapi, and hence uses its topic. When user
+		// API handles it for all account data, we can remove it from
+		// here.
+		ClientDataTopic: cfg.Matrix.Kafka.TopicFor(config.TopicOutputClientData),
 	}
 
 	psAPI := internal.NewPushserverAPI(

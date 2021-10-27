@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/matrix-org/dendrite/clientapi/producers"
 	"github.com/matrix-org/dendrite/internal/pushrules"
 	"github.com/matrix-org/dendrite/pushserver/api"
+	"github.com/matrix-org/dendrite/pushserver/producers"
 	"github.com/matrix-org/dendrite/pushserver/storage"
 	"github.com/matrix-org/dendrite/pushserver/storage/tables"
 	"github.com/matrix-org/dendrite/setup/config"
@@ -130,7 +130,7 @@ func (a *PushserverInternalAPI) PerformPushRulesPut(
 		return err
 	}
 
-	if err := a.syncProducer.SendData(req.UserID, "" /* roomID */, pushRulesAccountDataType); err != nil {
+	if err := a.syncProducer.SendAccountData(req.UserID, "" /* roomID */, pushRulesAccountDataType); err != nil {
 		util.GetLogger(ctx).WithError(err).Errorf("syncProducer.SendData failed")
 	}
 
