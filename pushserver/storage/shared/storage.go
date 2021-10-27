@@ -33,6 +33,12 @@ func (d *Database) InsertNotification(ctx context.Context, localpart, eventID st
 	})
 }
 
+func (d *Database) DeleteNotificationsUpTo(ctx context.Context, localpart, roomID, upToEventID string) error {
+	return d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
+		return d.notifications.DeleteUpTo(ctx, localpart, roomID, upToEventID)
+	})
+}
+
 func (d *Database) SetNotificationsRead(ctx context.Context, localpart, roomID, upToEventID string, b bool) error {
 	return d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
 		return d.notifications.UpdateRead(ctx, localpart, roomID, upToEventID, b)

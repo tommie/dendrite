@@ -29,6 +29,7 @@ import (
 
 type notificationsStatements struct {
 	insertStmt     *sql.Stmt
+	deleteUpToStmt *sql.Stmt
 	updateReadStmt *sql.Stmt
 	selectStmt     *sql.Stmt
 }
@@ -38,6 +39,7 @@ func prepareNotificationsTable(db *sql.DB) (tables.Notifications, error) {
 
 	return s, sqlutil.StatementList{
 		{&s.insertStmt, insertNotificationSQL},
+		{&s.deleteUpToStmt, deleteNotificationsUpToSQL},
 		{&s.updateReadStmt, updateNotificationReadSQL},
 		{&s.selectStmt, selectNotificationSQL},
 	}.Prepare(db)
@@ -59,6 +61,31 @@ func (s *notificationsStatements) Insert(ctx context.Context, localpart, eventID
 	}
 	_, err = s.insertStmt.ExecContext(ctx, localpart, roomID, eventID, tsMS, highlight, string(bs))
 	return err
+}
+
+const deleteNotificationsUpToSQL = `DELETE FROM pushserver_notifications
+WHERE
+  localpart = $1 AND
+  room_id = $2 AND
+  id <= (
+    SELECT MAX(id)
+    FROM pushserver_notifications
+    WHERE
+      localpart = $1 AND
+      room_id = $2 AND
+      event_id = $3
+  )`
+
+// DeleteUpTo deletes all previous notifications, up to and including the event.
+func (s *notificationsStatements) DeleteUpTo(ctx context.Context, localpart, roomID, eventID string) error {
+	res, err := s.updateReadStmt.ExecContext(ctx, localpart, roomID, eventID)
+	if err != nil {
+		return err
+	}
+	if nrows, err := res.RowsAffected(); err == nil {
+		log.WithFields(log.Fields{"localpart": localpart, "room_id": roomID, "event_id": eventID}).Tracef("DeleteUpTo: %d rows affected", nrows)
+	}
+	return nil
 }
 
 const updateNotificationReadSQL = `UPDATE pushserver_notifications

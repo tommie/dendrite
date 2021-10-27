@@ -16,6 +16,7 @@ type Database interface {
 	RemovePushers(ctx context.Context, appId, pushkey string) error
 
 	InsertNotification(ctx context.Context, localpart, eventID string, tweaks map[string]interface{}, n *api.Notification) error
+	DeleteNotificationsUpTo(ctx context.Context, localpart, roomID, upToEventID string) error
 	SetNotificationsRead(ctx context.Context, localpart, roomID, upToEventID string, b bool) error
 	GetNotifications(ctx context.Context, localpart string, fromID int64, limit int, filter NotificationFilter) ([]*api.Notification, int64, error)
 }

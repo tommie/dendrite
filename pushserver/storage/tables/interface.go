@@ -24,6 +24,7 @@ type Pusher interface {
 
 type Notifications interface {
 	Insert(ctx context.Context, localpart, eventID string, highlight bool, n *api.Notification) error
+	DeleteUpTo(ctx context.Context, localpart, roomID, eventID string) error
 	UpdateRead(ctx context.Context, localpart, roomID, eventID string, v bool) error
 	Select(ctx context.Context, localpart string, fromID int64, limit int, filter NotificationFilter) ([]*api.Notification, int64, error)
 }
