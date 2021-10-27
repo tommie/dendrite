@@ -5,15 +5,42 @@ import (
 	"database/sql"
 	"encoding/json"
 
+	"github.com/matrix-org/dendrite/internal/pushrules"
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/pushserver/api"
 	"github.com/matrix-org/dendrite/pushserver/storage/tables"
 )
 
 type Database struct {
-	DB      *sql.DB
-	Writer  sqlutil.Writer
-	pushers tables.Pusher
+	DB            *sql.DB
+	Writer        sqlutil.Writer
+	notifications tables.Notifications
+	pushers       tables.Pusher
+}
+
+func (d *Database) Prepare() (err error) {
+	d.notifications, err = prepareNotificationsTable(d.DB)
+	if err != nil {
+		return
+	}
+	d.pushers, err = preparePushersTable(d.DB)
+	return
+}
+
+func (d *Database) InsertNotification(ctx context.Context, localpart, eventID string, tweaks map[string]interface{}, n *api.Notification) error {
+	return d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
+		return d.notifications.Insert(ctx, localpart, eventID, pushrules.BoolTweakOr(tweaks, pushrules.HighlightTweak, false), n)
+	})
+}
+
+func (d *Database) SetNotificationRead(ctx context.Context, localpart, roomID, eventID string, b bool) error {
+	return d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
+		return d.notifications.UpdateRead(ctx, localpart, roomID, eventID, b)
+	})
+}
+
+func (d *Database) GetNotifications(ctx context.Context, localpart string, fromID int64, limit int, filter tables.NotificationFilter) ([]*api.Notification, int64, error) {
+	return d.notifications.Select(ctx, localpart, fromID, limit, filter)
 }
 
 func (d *Database) CreatePusher(
@@ -70,9 +97,4 @@ func (d *Database) RemovePushers(
 	return d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
 		return d.pushers.DeletePushers(ctx, appid, pushkey)
 	})
-}
-
-func (d *Database) Prepare() (err error) {
-	d.pushers, err = preparePushersTable(d.DB)
-	return
 }

@@ -23,8 +23,17 @@ type Pusher interface {
 }
 
 type Notifications interface {
-	InsertNotification()
-	GetNotifications()
-	SetToken()
-	GetToken()
+	Insert(ctx context.Context, localpart, eventID string, highlight bool, n *api.Notification) error
+	UpdateRead(ctx context.Context, localpart, roomID, eventID string, v bool) error
+	Select(ctx context.Context, localpart string, fromID int64, limit int, filter NotificationFilter) ([]*api.Notification, int64, error)
 }
+
+type NotificationFilter uint32
+
+const (
+	HighlightNotifications NotificationFilter = 1 << iota
+	NonHighlightNotifications
+
+	NoNotifications  NotificationFilter = 0
+	AllNotifications NotificationFilter = (1 << 32) - 1
+)
