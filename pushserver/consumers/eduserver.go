@@ -29,7 +29,7 @@ func NewOutputReceiptEventConsumer(
 ) *OutputReceiptEventConsumer {
 	consumer := internal.ContinualConsumer{
 		Process:        process,
-		ComponentName:  "pushserver/roomserver",
+		ComponentName:  "pushserver/eduserver",
 		Topic:          string(cfg.Matrix.Kafka.TopicFor(config.TopicOutputReceiptEvent)),
 		Consumer:       kafkaConsumer,
 		PartitionStore: store,
