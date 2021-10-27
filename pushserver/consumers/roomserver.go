@@ -292,10 +292,16 @@ func unmarshalCanonicalAlias(event *gomatrixserverlib.HeaderedEvent) (string, er
 
 // notifyLocal finds the right push actions for a local user, given an event.
 func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, mem *localMembership, roomSize int, roomName string) error {
-	ok, tweaks, err := s.evaluatePushRules(ctx, event, mem, roomSize)
+	actions, err := s.evaluatePushRules(ctx, event, mem, roomSize)
 	if err != nil {
 		return err
-	} else if !ok {
+	}
+	a, tweaks, err := pushrules.ActionsToTweaks(actions)
+	if err != nil {
+		return err
+	}
+	// TODO: support coalescing.
+	if a != pushrules.NotifyAction && a != pushrules.CoalesceAction {
 		log.WithFields(log.Fields{
 			"event_id":  event.EventID(),
 			"room_id":   event.RoomID(),
@@ -369,17 +375,17 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 }
 
 // evaluatePushRules fetches and evaluates the push rules of a local
-// user. Returns true if the event should be pushed.
-func (s *OutputRoomEventConsumer) evaluatePushRules(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, mem *localMembership, roomSize int) (bool, map[string]interface{}, error) {
+// user. Returns actions (including dont_notify).
+func (s *OutputRoomEventConsumer) evaluatePushRules(ctx context.Context, event *gomatrixserverlib.HeaderedEvent, mem *localMembership, roomSize int) ([]*pushrules.Action, error) {
 	if event.Sender() == mem.UserID {
 		// SPEC: Homeservers MUST NOT notify the Push Gateway for
 		// events that the user has sent themselves.
-		return false, nil, nil
+		return nil, nil
 	}
 
 	var res api.QueryPushRulesResponse
 	if err := s.psAPI.QueryPushRules(ctx, &api.QueryPushRulesRequest{UserID: mem.UserID}, &res); err != nil {
-		return false, nil, err
+		return nil, err
 	}
 
 	ec := &ruleSetEvalContext{
@@ -392,17 +398,12 @@ func (s *OutputRoomEventConsumer) evaluatePushRules(ctx context.Context, event *
 	eval := pushrules.NewRuleSetEvaluator(ec, &res.RuleSets.Global)
 	rule, err := eval.MatchEvent(event.Event)
 	if err != nil {
-		return false, nil, err
+		return nil, err
 	}
 	if rule == nil {
 		// SPEC: If no rules match an event, the homeserver MUST NOT
 		// notify the Push Gateway for that event.
-		return false, nil, err
-	}
-
-	a, tweaks, err := pushrules.ActionsToTweaks(rule.Actions)
-	if err != nil {
-		return false, nil, err
+		return nil, err
 	}
 
 	log.WithFields(log.Fields{
@@ -410,11 +411,9 @@ func (s *OutputRoomEventConsumer) evaluatePushRules(ctx context.Context, event *
 		"room_id":   event.RoomID(),
 		"localpart": mem.Localpart,
 		"rule_id":   rule.RuleID,
-		"action":    a,
 	}).Tracef("Matched a push rule")
 
-	// TODO: support coalescing.
-	return a == pushrules.NotifyAction || a == pushrules.CoalesceAction, tweaks, nil
+	return rule.Actions, nil
 }
 
 type ruleSetEvalContext struct {
