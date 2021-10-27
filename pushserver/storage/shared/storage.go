@@ -33,9 +33,9 @@ func (d *Database) InsertNotification(ctx context.Context, localpart, eventID st
 	})
 }
 
-func (d *Database) SetNotificationRead(ctx context.Context, localpart, roomID, eventID string, b bool) error {
+func (d *Database) SetNotificationsRead(ctx context.Context, localpart, roomID, upToEventID string, b bool) error {
 	return d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
-		return d.notifications.UpdateRead(ctx, localpart, roomID, eventID, b)
+		return d.notifications.UpdateRead(ctx, localpart, roomID, upToEventID, b)
 	})
 }
 

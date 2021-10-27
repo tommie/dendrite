@@ -72,7 +72,7 @@ func (s *OutputReceiptEventConsumer) onMessage(msg *sarama.ConsumerMessage) erro
 		"event_type": event.Type,
 	}).Tracef("Received message from EDU server: %#v", event)
 
-	if err := s.db.SetNotificationRead(ctx, localpart, event.RoomID, event.EventID, true); err != nil {
+	if err := s.db.SetNotificationsRead(ctx, localpart, event.RoomID, event.EventID, true); err != nil {
 		log.WithFields(log.Fields{
 			"localpart": localpart,
 			"room_id":   event.RoomID,
