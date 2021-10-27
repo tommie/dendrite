@@ -1,0 +1,84 @@
+package consumers
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/Shopify/sarama"
+	eduapi "github.com/matrix-org/dendrite/eduserver/api"
+	"github.com/matrix-org/dendrite/internal"
+	"github.com/matrix-org/dendrite/pushserver/storage"
+	"github.com/matrix-org/dendrite/setup/config"
+	"github.com/matrix-org/dendrite/setup/process"
+	"github.com/matrix-org/gomatrixserverlib"
+	log "github.com/sirupsen/logrus"
+)
+
+type OutputReceiptEventConsumer struct {
+	cfg        *config.PushServer
+	rsConsumer *internal.ContinualConsumer
+	db         storage.Database
+}
+
+func NewOutputReceiptEventConsumer(
+	process *process.ProcessContext,
+	cfg *config.PushServer,
+	kafkaConsumer sarama.Consumer,
+	store storage.Database,
+) *OutputReceiptEventConsumer {
+	consumer := internal.ContinualConsumer{
+		Process:        process,
+		ComponentName:  "pushserver/roomserver",
+		Topic:          string(cfg.Matrix.Kafka.TopicFor(config.TopicOutputReceiptEvent)),
+		Consumer:       kafkaConsumer,
+		PartitionStore: store,
+	}
+	s := &OutputReceiptEventConsumer{
+		cfg:        cfg,
+		rsConsumer: &consumer,
+		db:         store,
+	}
+	consumer.ProcessMessage = s.onMessage
+	return s
+}
+
+func (s *OutputReceiptEventConsumer) Start() error {
+	return s.rsConsumer.Start()
+}
+
+func (s *OutputReceiptEventConsumer) onMessage(msg *sarama.ConsumerMessage) error {
+	ctx := context.Background()
+
+	var event eduapi.OutputReceiptEvent
+	if err := json.Unmarshal(msg.Value, &event); err != nil {
+		log.WithError(err).Errorf("pushserver EDU consumer: message parse failure")
+		return nil
+	}
+
+	localpart, domain, err := gomatrixserverlib.SplitID('@', event.UserID)
+	if err != nil {
+		return err
+	}
+
+	if domain != s.cfg.Matrix.ServerName {
+		return fmt.Errorf("pushserver EDU consumer: not a local user: %v", event.UserID)
+	}
+
+	log.WithFields(log.Fields{
+		"localpart":  localpart,
+		"room_id":    event.RoomID,
+		"event_id":   event.EventID,
+		"event_type": event.Type,
+	}).Tracef("Received message from EDU server: %#v", event)
+
+	if err := s.db.SetNotificationRead(ctx, localpart, event.RoomID, event.EventID, true); err != nil {
+		log.WithFields(log.Fields{
+			"localpart": localpart,
+			"room_id":   event.RoomID,
+			"event_id":  event.EventID,
+		}).WithError(err).Errorf("pushserver EDU consumer: %v", err)
+	}
+
+	return nil
+}
