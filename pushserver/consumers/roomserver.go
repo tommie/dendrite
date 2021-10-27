@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/matrix-org/dendrite/internal"
@@ -310,12 +311,26 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 		return nil
 	}
 
-	devicesByURLAndFormat, err := s.localPushDevices(ctx, mem.Localpart, tweaks)
+	devicesByURLAndFormat, profileTag, err := s.localPushDevices(ctx, mem.Localpart, tweaks)
 	if err != nil {
 		return err
 	}
 
-	if err := s.db.InsertNotification(ctx, mem.Localpart, event.EventID(), &api.Notification{}); err != nil {
+	n := &api.Notification{
+		Actions: actions,
+		// UNSPEC: the spec doesn't say this is a ClientEvent, but the
+		// fields seem to match. room_id should be missing, which
+		// matches the behavior of FormatSync.
+		Event: gomatrixserverlib.HeaderedToClientEvent(event, gomatrixserverlib.FormatSync),
+		// TODO: this is per-device, but it's not part of the primary
+		// key. So inserting one notification per profile tag doesn't
+		// make sense. What is this supposed to be? Sytests require it
+		// to "work", but they only use a single device.
+		ProfileTag: profileTag,
+		RoomID:     event.RoomID(),
+		TS:         gomatrixserverlib.AsTimestamp(time.Now()),
+	}
+	if err := s.db.InsertNotification(ctx, mem.Localpart, event.EventID(), tweaks, n); err != nil {
 		return err
 	}
 
@@ -455,15 +470,19 @@ func (rse *ruleSetEvalContext) HasPowerLevel(userID, levelKey string) (bool, err
 
 // localPushDevices pushes to the configured devices of a local
 // user. The map keys are [url][format].
-func (s *OutputRoomEventConsumer) localPushDevices(ctx context.Context, localpart string, tweaks map[string]interface{}) (map[string]map[string][]*pushgateway.Device, error) {
+func (s *OutputRoomEventConsumer) localPushDevices(ctx context.Context, localpart string, tweaks map[string]interface{}) (map[string]map[string][]*pushgateway.Device, string, error) {
 	req := &api.QueryPushersRequest{Localpart: localpart}
 	var res api.QueryPushersResponse
 	if err := s.psAPI.QueryPushers(ctx, req, &res); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
+	var profileTag string
 	devicesByURL := make(map[string]map[string][]*pushgateway.Device, len(res.Pushers))
 	for _, pusher := range res.Pushers {
+		if profileTag == "" {
+			profileTag = pusher.ProfileTag
+		}
 		var url, format string
 		data := pusher.Data
 		switch pusher.Kind {
@@ -515,7 +534,7 @@ func (s *OutputRoomEventConsumer) localPushDevices(ctx context.Context, localpar
 		})
 	}
 
-	return devicesByURL, nil
+	return devicesByURL, profileTag, nil
 }
 
 // notifyHTTP performs a notificatation to a Push Gateway.
