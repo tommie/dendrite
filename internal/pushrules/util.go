@@ -32,6 +32,20 @@ func ActionsToTweaks(as []*Action) (ActionKind, map[string]interface{}, error) {
 	return kind, tweaks, nil
 }
 
+// BoolTweakOr returns the named tweak as a boolean, and returns `def`
+// on failure.
+func BoolTweakOr(tweaks map[string]interface{}, key TweakKey, def bool) bool {
+	v, ok := tweaks[string(key)]
+	if !ok {
+		return def
+	}
+	b, ok := v.(bool)
+	if !ok {
+		return def
+	}
+	return b
+}
+
 // globToRegexp converts a Matrix glob-style pattern to a Regular expression.
 func globToRegexp(pattern string) (*regexp.Regexp, error) {
 	// TODO: It's unclear which glob characters are supported. The only

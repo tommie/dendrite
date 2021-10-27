@@ -46,6 +46,28 @@ func TestActionsToTweaks(t *testing.T) {
 	}
 }
 
+func TestBoolTweakOr(t *testing.T) {
+	tsts := []struct {
+		Name  string
+		Input map[string]interface{}
+		Def   bool
+		Want  bool
+	}{
+		{"nil", nil, false, false},
+		{"nilValue", map[string]interface{}{"highlight": nil}, true, true},
+		{"false", map[string]interface{}{"highlight": false}, true, false},
+		{"true", map[string]interface{}{"highlight": true}, false, true},
+	}
+	for _, tst := range tsts {
+		t.Run(tst.Name, func(t *testing.T) {
+			got := BoolTweakOr(tst.Input, HighlightTweak, tst.Def)
+			if got != tst.Want {
+				t.Errorf("BoolTweakOr: got %v, want %v", got, tst.Want)
+			}
+		})
+	}
+}
+
 func TestGlobToRegexp(t *testing.T) {
 	tsts := []struct {
 		Input string
