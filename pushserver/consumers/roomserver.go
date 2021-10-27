@@ -245,8 +245,7 @@ func (s *OutputRoomEventConsumer) roomName(ctx context.Context, event *gomatrixs
 		return "", err
 	}
 
-	event = res.StateEvents[roomNameTuple]
-	if event != nil {
+	if event := res.StateEvents[roomNameTuple]; event != nil {
 		return unmarshalRoomName(event)
 	}
 
@@ -261,8 +260,7 @@ func (s *OutputRoomEventConsumer) roomName(ctx context.Context, event *gomatrixs
 		}
 	}
 
-	event = res.StateEvents[canonicalAliasTuple]
-	if event != nil {
+	if event := res.StateEvents[canonicalAliasTuple]; event != nil {
 		return unmarshalCanonicalAlias(event)
 	}
 
