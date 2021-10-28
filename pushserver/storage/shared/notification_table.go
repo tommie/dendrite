@@ -80,7 +80,7 @@ WHERE
 
 // DeleteUpTo deletes all previous notifications, up to and including the event.
 func (s *notificationsStatements) DeleteUpTo(ctx context.Context, localpart, roomID, eventID string) error {
-	res, err := s.updateReadStmt.ExecContext(ctx, localpart, roomID, eventID)
+	res, err := s.deleteUpToStmt.ExecContext(ctx, localpart, roomID, eventID)
 	if err != nil {
 		return err
 	}
