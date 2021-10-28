@@ -7,8 +7,10 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/eventutil"
+	"github.com/matrix-org/dendrite/internal/pushgateway"
 	"github.com/matrix-org/dendrite/pushserver/producers"
 	"github.com/matrix-org/dendrite/pushserver/storage"
+	"github.com/matrix-org/dendrite/pushserver/util"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/setup/process"
 	uapi "github.com/matrix-org/dendrite/userapi/api"
@@ -20,6 +22,7 @@ type OutputClientDataConsumer struct {
 	cfg          *config.PushServer
 	rsConsumer   *internal.ContinualConsumer
 	db           storage.Database
+	pgClient     pushgateway.Client
 	userAPI      uapi.UserInternalAPI
 	syncProducer *producers.SyncAPI
 }
@@ -29,6 +32,7 @@ func NewOutputClientDataConsumer(
 	cfg *config.PushServer,
 	kafkaConsumer sarama.Consumer,
 	store storage.Database,
+	pgClient pushgateway.Client,
 	userAPI uapi.UserInternalAPI,
 	syncProducer *producers.SyncAPI,
 ) *OutputClientDataConsumer {
@@ -43,6 +47,7 @@ func NewOutputClientDataConsumer(
 		cfg:          cfg,
 		rsConsumer:   &consumer,
 		db:           store,
+		pgClient:     pgClient,
 		userAPI:      userAPI,
 		syncProducer: syncProducer,
 	}
@@ -146,6 +151,15 @@ func (s *OutputClientDataConsumer) onMessage(msg *sarama.ConsumerMessage) error 
 	}
 
 	if deleted {
+		if err := util.NotifyUserCountsAsync(ctx, s.pgClient, localpart, s.db); err != nil {
+			log.WithFields(log.Fields{
+				"localpart": localpart,
+				"room_id":   event.RoomID,
+				"event_id":  data.EventID,
+			}).WithError(err).Error("pushserver clientapi consumer: NotifyUserCounts failed")
+			return nil
+		}
+
 		if err := s.syncProducer.GetAndSendNotificationData(ctx, userID, event.RoomID); err != nil {
 			log.WithFields(log.Fields{
 				"localpart": localpart,

@@ -8,8 +8,10 @@ import (
 	"github.com/Shopify/sarama"
 	eduapi "github.com/matrix-org/dendrite/eduserver/api"
 	"github.com/matrix-org/dendrite/internal"
+	"github.com/matrix-org/dendrite/internal/pushgateway"
 	"github.com/matrix-org/dendrite/pushserver/producers"
 	"github.com/matrix-org/dendrite/pushserver/storage"
+	"github.com/matrix-org/dendrite/pushserver/util"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/setup/process"
 	"github.com/matrix-org/gomatrixserverlib"
@@ -20,6 +22,7 @@ type OutputReceiptEventConsumer struct {
 	cfg          *config.PushServer
 	rsConsumer   *internal.ContinualConsumer
 	db           storage.Database
+	pgClient     pushgateway.Client
 	syncProducer *producers.SyncAPI
 }
 
@@ -28,6 +31,7 @@ func NewOutputReceiptEventConsumer(
 	cfg *config.PushServer,
 	kafkaConsumer sarama.Consumer,
 	store storage.Database,
+	pgClient pushgateway.Client,
 	syncProducer *producers.SyncAPI,
 ) *OutputReceiptEventConsumer {
 	consumer := internal.ContinualConsumer{
@@ -41,6 +45,7 @@ func NewOutputReceiptEventConsumer(
 		cfg:          cfg,
 		rsConsumer:   &consumer,
 		db:           store,
+		pgClient:     pgClient,
 		syncProducer: syncProducer,
 	}
 	consumer.ProcessMessage = s.onMessage
@@ -90,6 +95,15 @@ func (s *OutputReceiptEventConsumer) onMessage(msg *sarama.ConsumerMessage) erro
 	}
 
 	if updated {
+		if err := util.NotifyUserCountsAsync(ctx, s.pgClient, localpart, s.db); err != nil {
+			log.WithFields(log.Fields{
+				"localpart": localpart,
+				"room_id":   event.RoomID,
+				"event_id":  event.EventID,
+			}).WithError(err).Error("pushserver EDU consumer: NotifyUserCounts failed")
+			return nil
+		}
+
 		if err := s.syncProducer.GetAndSendNotificationData(ctx, event.UserID, event.RoomID); err != nil {
 			log.WithFields(log.Fields{
 				"localpart": localpart,

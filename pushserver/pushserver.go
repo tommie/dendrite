@@ -57,14 +57,14 @@ func NewInternalAPI(
 	)
 
 	caConsumer := consumers.NewOutputClientDataConsumer(
-		base.ProcessContext, cfg, consumer, db, userAPI, syncProducer,
+		base.ProcessContext, cfg, consumer, db, pgClient, userAPI, syncProducer,
 	)
 	if err := caConsumer.Start(); err != nil {
 		logrus.WithError(err).Panic("failed to start push server clientapi consumer")
 	}
 
 	eduConsumer := consumers.NewOutputReceiptEventConsumer(
-		base.ProcessContext, cfg, consumer, db, syncProducer,
+		base.ProcessContext, cfg, consumer, db, pgClient, syncProducer,
 	)
 	if err := eduConsumer.Start(); err != nil {
 		logrus.WithError(err).Panic("failed to start push server EDU consumer")
