@@ -608,3 +608,5 @@ Rejected events are not pushed
 Test that rejected pushers are removed.
 Rooms with canonical alias are correctly named in pushed
 Notifications can be viewed with GET /notifications
+Messages that notify from another user increment notification_count
+Messages that highlight from another user increment unread highlight count
