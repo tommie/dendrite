@@ -365,6 +365,10 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 	// TODO: think about bounding this to one per user, and what
 	// ordering guarantees we must provide.
 	go func() {
+		// This background processing cannot be tied to a request.
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
 		var rejected []*pushgateway.Device
 		for url, fmts := range devicesByURLAndFormat {
 			for format, devices := range fmts {
