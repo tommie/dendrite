@@ -79,16 +79,25 @@ func (s *OutputReceiptEventConsumer) onMessage(msg *sarama.ConsumerMessage) erro
 	// TODO: we cannot know if this EventID caused a notification, so
 	// we should first resolve it and find the closest earlier
 	// notification.
-	if err := s.db.SetNotificationsRead(ctx, localpart, event.RoomID, event.EventID, true); err != nil {
+	updated, err := s.db.SetNotificationsRead(ctx, localpart, event.RoomID, event.EventID, true)
+	if err != nil {
 		log.WithFields(log.Fields{
 			"localpart": localpart,
 			"room_id":   event.RoomID,
 			"event_id":  event.EventID,
-		}).WithError(err).Errorf("pushserver EDU consumer: %v", err)
+		}).WithError(err).Error("pushserver EDU consumer")
+		return nil
 	}
 
-	if err := s.syncProducer.GetAndSendNotificationData(ctx, event.UserID, event.RoomID); err != nil {
-		return err
+	if updated {
+		if err := s.syncProducer.GetAndSendNotificationData(ctx, event.UserID, event.RoomID); err != nil {
+			log.WithFields(log.Fields{
+				"localpart": localpart,
+				"room_id":   event.RoomID,
+				"event_id":  event.EventID,
+			}).WithError(err).Error("pushserver EDU consumer: GetAndSendNotificationData failed")
+			return nil
+		}
 	}
 
 	return nil

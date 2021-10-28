@@ -135,16 +135,25 @@ func (s *OutputClientDataConsumer) onMessage(msg *sarama.ConsumerMessage) error 
 	// TODO: we cannot know if this EventID caused a notification, so
 	// we should first resolve it and find the closest earlier
 	// notification.
-	if err := s.db.DeleteNotificationsUpTo(ctx, localpart, event.RoomID, data.EventID); err != nil {
+	deleted, err := s.db.DeleteNotificationsUpTo(ctx, localpart, event.RoomID, data.EventID)
+	if err != nil {
 		log.WithFields(log.Fields{
 			"localpart": localpart,
 			"room_id":   event.RoomID,
 			"event_id":  data.EventID,
 		}).WithError(err).Errorf("pushserver clientapi consumer: DeleteNotificationsUpTo failed")
+		return nil
 	}
 
-	if err := s.syncProducer.GetAndSendNotificationData(ctx, userID, event.RoomID); err != nil {
-		return err
+	if deleted {
+		if err := s.syncProducer.GetAndSendNotificationData(ctx, userID, event.RoomID); err != nil {
+			log.WithFields(log.Fields{
+				"localpart": localpart,
+				"room_id":   event.RoomID,
+				"event_id":  data.EventID,
+			}).WithError(err).Errorf("pushserver clientapi consumer: GetAndSendNotificationData failed")
+			return nil
+		}
 	}
 
 	return nil

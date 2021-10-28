@@ -81,15 +81,17 @@ WHERE
   )`
 
 // DeleteUpTo deletes all previous notifications, up to and including the event.
-func (s *notificationsStatements) DeleteUpTo(ctx context.Context, localpart, roomID, eventID string) error {
+func (s *notificationsStatements) DeleteUpTo(ctx context.Context, localpart, roomID, eventID string) (affected bool, _ error) {
 	res, err := s.deleteUpToStmt.ExecContext(ctx, localpart, roomID, eventID)
 	if err != nil {
-		return err
+		return false, err
 	}
-	if nrows, err := res.RowsAffected(); err == nil {
-		log.WithFields(log.Fields{"localpart": localpart, "room_id": roomID, "event_id": eventID}).Tracef("DeleteUpTo: %d rows affected", nrows)
+	nrows, err := res.RowsAffected()
+	if err != nil {
+		return true, err
 	}
-	return nil
+	log.WithFields(log.Fields{"localpart": localpart, "room_id": roomID, "event_id": eventID}).Tracef("DeleteUpTo: %d rows affected", nrows)
+	return nrows > 0, nil
 }
 
 const updateNotificationReadSQL = `UPDATE pushserver_notifications
@@ -104,18 +106,21 @@ WHERE
       localpart = $2 AND
       room_id = $3 AND
       event_id = $4
-  )`
+  ) AND
+  read <> $1`
 
 // UpdateRead updates the "read" value for an event.
-func (s *notificationsStatements) UpdateRead(ctx context.Context, localpart, roomID, eventID string, v bool) error {
+func (s *notificationsStatements) UpdateRead(ctx context.Context, localpart, roomID, eventID string, v bool) (affected bool, _ error) {
 	res, err := s.updateReadStmt.ExecContext(ctx, v, localpart, roomID, eventID)
 	if err != nil {
-		return err
+		return false, err
 	}
-	if nrows, err := res.RowsAffected(); err == nil {
-		log.WithFields(log.Fields{"localpart": localpart, "room_id": roomID, "event_id": eventID}).Tracef("UpdateRead: %d rows affected", nrows)
+	nrows, err := res.RowsAffected()
+	if err != nil {
+		return true, err
 	}
-	return nil
+	log.WithFields(log.Fields{"localpart": localpart, "room_id": roomID, "event_id": eventID}).Tracef("UpdateRead: %d rows affected", nrows)
+	return nrows > 0, nil
 }
 
 const selectNotificationSQL = `SELECT id, room_id, ts_ms, read, notification_json

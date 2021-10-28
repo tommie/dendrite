@@ -33,16 +33,20 @@ func (d *Database) InsertNotification(ctx context.Context, localpart, eventID st
 	})
 }
 
-func (d *Database) DeleteNotificationsUpTo(ctx context.Context, localpart, roomID, upToEventID string) error {
-	return d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
-		return d.notifications.DeleteUpTo(ctx, localpart, roomID, upToEventID)
+func (d *Database) DeleteNotificationsUpTo(ctx context.Context, localpart, roomID, upToEventID string) (affected bool, err error) {
+	err = d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
+		affected, err = d.notifications.DeleteUpTo(ctx, localpart, roomID, upToEventID)
+		return err
 	})
+	return
 }
 
-func (d *Database) SetNotificationsRead(ctx context.Context, localpart, roomID, upToEventID string, b bool) error {
-	return d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
-		return d.notifications.UpdateRead(ctx, localpart, roomID, upToEventID, b)
+func (d *Database) SetNotificationsRead(ctx context.Context, localpart, roomID, upToEventID string, b bool) (affected bool, err error) {
+	err = d.Writer.Do(nil, nil, func(_ *sql.Tx) error {
+		affected, err = d.notifications.UpdateRead(ctx, localpart, roomID, upToEventID, b)
+		return err
 	})
+	return
 }
 
 func (d *Database) GetNotifications(ctx context.Context, localpart string, fromID int64, limit int, filter tables.NotificationFilter) ([]*api.Notification, int64, error) {
