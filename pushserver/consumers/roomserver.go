@@ -16,6 +16,7 @@ import (
 	"github.com/matrix-org/dendrite/pushserver/producers"
 	"github.com/matrix-org/dendrite/pushserver/storage"
 	"github.com/matrix-org/dendrite/pushserver/storage/tables"
+	"github.com/matrix-org/dendrite/pushserver/util"
 	rsapi "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/setup/process"
@@ -491,68 +492,23 @@ func (rse *ruleSetEvalContext) HasPowerLevel(userID, levelKey string) (bool, err
 // localPushDevices pushes to the configured devices of a local
 // user. The map keys are [url][format].
 func (s *OutputRoomEventConsumer) localPushDevices(ctx context.Context, localpart string, tweaks map[string]interface{}) (map[string]map[string][]*pushgateway.Device, string, error) {
-	req := &api.QueryPushersRequest{Localpart: localpart}
-	var res api.QueryPushersResponse
-	if err := s.psAPI.QueryPushers(ctx, req, &res); err != nil {
+	pusherDevices, err := util.GetPushDevices(ctx, localpart, tweaks, s.db)
+	if err != nil {
 		return nil, "", err
 	}
 
 	var profileTag string
-	devicesByURL := make(map[string]map[string][]*pushgateway.Device, len(res.Pushers))
-	for _, pusher := range res.Pushers {
+	devicesByURL := make(map[string]map[string][]*pushgateway.Device, len(pusherDevices))
+	for _, pusherDevice := range pusherDevices {
 		if profileTag == "" {
-			profileTag = pusher.ProfileTag
-		}
-		var url, format string
-		data := pusher.Data
-		switch pusher.Kind {
-		case api.EmailKind:
-			url = "mailto:"
-
-		case api.HTTPKind:
-			// TODO: The spec says only event_id_only is supported,
-			// but Sytests assume "" means "full notification".
-			fmtIface := pusher.Data["format"]
-			var ok bool
-			format, ok = fmtIface.(string)
-			if ok && format != "event_id_only" {
-				log.WithFields(log.Fields{
-					"localpart": localpart,
-					"app_id":    pusher.AppID,
-				}).Errorf("Only data.format event_id_only or empty is supported")
-				continue
-			}
-
-			urlIface := pusher.Data["url"]
-			url, ok = urlIface.(string)
-			if !ok {
-				log.WithFields(log.Fields{
-					"localpart": localpart,
-					"app_id":    pusher.AppID,
-				}).Errorf("No data.url configured for HTTP Pusher")
-				continue
-			}
-			data = mapWithout(data, "url")
-
-		default:
-			log.WithFields(log.Fields{
-				"localpart": localpart,
-				"app_id":    pusher.AppID,
-				"kind":      pusher.Kind,
-			}).Errorf("Unhandled pusher kind")
-			continue
+			profileTag = pusherDevice.Pusher.ProfileTag
 		}
 
+		url := pusherDevice.URL
 		if devicesByURL[url] == nil {
 			devicesByURL[url] = make(map[string][]*pushgateway.Device, 2)
 		}
-		devicesByURL[url][format] = append(devicesByURL[url][format], &pushgateway.Device{
-			AppID:     pusher.AppID,
-			Data:      data,
-			PushKey:   pusher.PushKey,
-			PushKeyTS: pusher.PushKeyTS,
-			Tweaks:    tweaks,
-		})
+		devicesByURL[url][pusherDevice.Format] = append(devicesByURL[url][pusherDevice.Format], &pusherDevice.Device)
 	}
 
 	return devicesByURL, profileTag, nil

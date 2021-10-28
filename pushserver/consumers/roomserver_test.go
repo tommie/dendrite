@@ -33,6 +33,21 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDatabase failed: %v", err)
 	}
+	err = db.CreatePusher(ctx,
+		api.Pusher{
+			PushKey: "apushkey",
+			Kind:    api.HTTPKind,
+			AppID:   "anappid",
+			Data: map[string]interface{}{
+				"url":   "http://example.org/pusher/notify",
+				"extra": "someextra",
+			},
+		},
+		"alice")
+	if err != nil {
+		t.Fatalf("CreatePusher failed: %v", err)
+	}
+
 	var rsAPI fakeRoomServerInternalAPI
 	var psAPI fakePushserverInternalAPI
 	var messageSender fakeMessageSender
@@ -85,9 +100,6 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 
 	if diff := cmp.Diff([]*rsapi.QueryMembershipsForRoomRequest{{JoinedOnly: true, RoomID: "!jEsUZKDJdhlrceRyVU:example.org"}}, rsAPI.MembershipReqs); diff != "" {
 		t.Errorf("rsAPI.QueryMembershipsForRoom Reqs: +got -want:\n%s", diff)
-	}
-	if diff := cmp.Diff([]*api.QueryPushersRequest{{Localpart: "alice"}}, psAPI.Reqs); diff != "" {
-		t.Errorf("psAPI.QueryPushers Reqs: +got -want:\n%s", diff)
 	}
 	if diff := cmp.Diff([]*pushgateway.NotifyRequest{{
 		Notification: pushgateway.Notification{
@@ -183,26 +195,6 @@ func (s *fakeRoomServerInternalAPI) QueryMembershipsForRoom(
 
 type fakePushserverInternalAPI struct {
 	api.PushserverInternalAPI
-
-	Reqs []*api.QueryPushersRequest
-}
-
-func (s *fakePushserverInternalAPI) QueryPushers(ctx context.Context, req *api.QueryPushersRequest, res *api.QueryPushersResponse) error {
-	s.Reqs = append(s.Reqs, req)
-	*res = api.QueryPushersResponse{
-		Pushers: []api.Pusher{
-			{
-				PushKey: "apushkey",
-				Kind:    api.HTTPKind,
-				AppID:   "anappid",
-				Data: map[string]interface{}{
-					"url":   "http://example.org/pusher/notify",
-					"extra": "someextra",
-				},
-			},
-		},
-	}
-	return nil
 }
 
 func (s *fakePushserverInternalAPI) QueryPushRules(ctx context.Context, req *api.QueryPushRulesRequest, res *api.QueryPushRulesResponse) error {
