@@ -118,14 +118,12 @@ const (
 )
 
 type StreamingToken struct {
-	PDUPosition          StreamPosition
-	TypingPosition       StreamPosition
-	ReceiptPosition      StreamPosition
-	SendToDevicePosition StreamPosition
-	InvitePosition       StreamPosition
-	AccountDataPosition  StreamPosition
-	// TODO: should this new field be inserted after the last
-	// StreamPosition, or at the end of the struct.
+	PDUPosition              StreamPosition
+	TypingPosition           StreamPosition
+	ReceiptPosition          StreamPosition
+	SendToDevicePosition     StreamPosition
+	InvitePosition           StreamPosition
+	AccountDataPosition      StreamPosition
 	NotificationDataPosition StreamPosition
 	DeviceListPosition       LogPosition
 }
