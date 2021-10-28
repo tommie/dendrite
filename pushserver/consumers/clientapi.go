@@ -132,6 +132,9 @@ func (s *OutputClientDataConsumer) onMessage(msg *sarama.ConsumerMessage) error 
 		return nil
 	}
 
+	// TODO: we cannot know if this EventID caused a notification, so
+	// we should first resolve it and find the closest earlier
+	// notification.
 	if err := s.db.DeleteNotificationsUpTo(ctx, localpart, event.RoomID, data.EventID); err != nil {
 		log.WithFields(log.Fields{
 			"localpart": localpart,
