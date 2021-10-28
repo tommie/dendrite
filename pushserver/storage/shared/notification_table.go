@@ -28,11 +28,12 @@ import (
 )
 
 type notificationsStatements struct {
-	insertStmt      *sql.Stmt
-	deleteUpToStmt  *sql.Stmt
-	updateReadStmt  *sql.Stmt
-	selectStmt      *sql.Stmt
-	selectCountStmt *sql.Stmt
+	insertStmt           *sql.Stmt
+	deleteUpToStmt       *sql.Stmt
+	updateReadStmt       *sql.Stmt
+	selectStmt           *sql.Stmt
+	selectCountStmt      *sql.Stmt
+	selectRoomCountsStmt *sql.Stmt
 }
 
 func prepareNotificationsTable(db *sql.DB) (tables.Notifications, error) {
@@ -44,6 +45,7 @@ func prepareNotificationsTable(db *sql.DB) (tables.Notifications, error) {
 		{&s.updateReadStmt, updateNotificationReadSQL},
 		{&s.selectStmt, selectNotificationSQL},
 		{&s.selectCountStmt, selectNotificationCountSQL},
+		{&s.selectRoomCountsStmt, selectRoomNotificationCountsSQL},
 	}.Prepare(db)
 }
 
@@ -199,4 +201,32 @@ func (s *notificationsStatements) SelectCount(ctx context.Context, localpart str
 		return count, nil
 	}
 	return 0, rows.Err()
+}
+
+const selectRoomNotificationCountsSQL = `SELECT
+  COUNT(*),
+  COUNT(*) FILTER (WHERE highlight)
+FROM pushserver_notifications
+WHERE
+  localpart = $1 AND
+  room_id = $2 AND
+  NOT read`
+
+func (s *notificationsStatements) SelectRoomCounts(ctx context.Context, localpart, roomID string) (total int64, highlight int64, _ error) {
+	rows, err := s.selectRoomCountsStmt.QueryContext(ctx, localpart, roomID)
+
+	if err != nil {
+		return 0, 0, err
+	}
+	defer internal.CloseAndLogIfError(ctx, rows, "notifications.Select: rows.Close() failed")
+
+	for rows.Next() {
+		var total, highlight int64
+		if err := rows.Scan(&total, &highlight); err != nil {
+			return 0, 0, err
+		}
+
+		return total, highlight, nil
+	}
+	return 0, 0, rows.Err()
 }

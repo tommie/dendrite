@@ -53,6 +53,10 @@ func (d *Database) GetNotificationCount(ctx context.Context, localpart string, f
 	return d.notifications.SelectCount(ctx, localpart, filter)
 }
 
+func (d *Database) GetRoomNotificationCounts(ctx context.Context, localpart, roomID string) (total int64, highlight int64, _ error) {
+	return d.notifications.SelectRoomCounts(ctx, localpart, roomID)
+}
+
 func (d *Database) CreatePusher(
 	ctx context.Context, p api.Pusher, localpart string,
 ) error {

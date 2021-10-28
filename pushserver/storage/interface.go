@@ -20,6 +20,7 @@ type Database interface {
 	SetNotificationsRead(ctx context.Context, localpart, roomID, upToEventID string, b bool) error
 	GetNotifications(ctx context.Context, localpart string, fromID int64, limit int, filter NotificationFilter) ([]*api.Notification, int64, error)
 	GetNotificationCount(ctx context.Context, localpart string, filter NotificationFilter) (int64, error)
+	GetRoomNotificationCounts(ctx context.Context, localpart, roomID string) (total int64, highlight int64, _ error)
 }
 
 type NotificationFilter = tables.NotificationFilter

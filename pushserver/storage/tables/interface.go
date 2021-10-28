@@ -28,6 +28,7 @@ type Notifications interface {
 	UpdateRead(ctx context.Context, localpart, roomID, eventID string, v bool) error
 	Select(ctx context.Context, localpart string, fromID int64, limit int, filter NotificationFilter) ([]*api.Notification, int64, error)
 	SelectCount(ctx context.Context, localpart string, filter NotificationFilter) (int64, error)
+	SelectRoomCounts(ctx context.Context, localpart, roomID string) (total int64, highlight int64, _ error)
 }
 
 type NotificationFilter uint32
