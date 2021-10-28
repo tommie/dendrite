@@ -23,6 +23,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/sqlutil"
 	"github.com/matrix-org/dendrite/pushserver/api"
 	"github.com/matrix-org/dendrite/pushserver/storage/tables"
+	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/sirupsen/logrus"
 )
 
@@ -39,6 +40,7 @@ CREATE TABLE IF NOT EXISTS pushserver_pushers (
 	app_display_name TEXT NOT NULL,
 	device_display_name TEXT NOT NULL,
 	pushkey TEXT NOT NULL,
+	pushkey_ts_ms BIGINT NOT NULL,
 	lang TEXT NOT NULL,
 	data TEXT NOT NULL
 );
@@ -54,10 +56,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS pusher_app_id_pushkey_localpart_idx ON pushser
 `
 
 const insertPusherSQL = "" +
-	"INSERT INTO pushserver_pushers (localpart, session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+	"INSERT INTO pushserver_pushers (localpart, session_id, pushkey, pushkey_ts_ms, kind, app_id, app_display_name, device_display_name, profile_tag, lang, data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
 
 const selectPushersSQL = "" +
-	"SELECT session_id, pushkey, kind, app_id, app_display_name, device_display_name, profile_tag, lang, data FROM pushserver_pushers WHERE localpart = $1"
+	"SELECT session_id, pushkey, pushkey_ts_ms, kind, app_id, app_display_name, device_display_name, profile_tag, lang, data FROM pushserver_pushers WHERE localpart = $1"
 
 const deletePusherSQL = "" +
 	"DELETE FROM pushserver_pushers WHERE app_id = $1 AND pushkey = $2 AND localpart = $3"
@@ -93,9 +95,9 @@ func preparePushersTable(db *sql.DB) (tables.Pusher, error) {
 // Returns nil error success.
 func (s *pushersStatements) InsertPusher(
 	ctx context.Context, session_id int64,
-	pushkey string, kind api.PusherKind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
+	pushkey string, pushkeyTS gomatrixserverlib.Timestamp, kind api.PusherKind, appid, appdisplayname, devicedisplayname, profiletag, lang, data, localpart string,
 ) error {
-	_, err := s.insertPusherStmt.ExecContext(ctx, localpart, session_id, pushkey, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data)
+	_, err := s.insertPusherStmt.ExecContext(ctx, localpart, session_id, pushkey, pushkeyTS, kind, appid, appdisplayname, devicedisplayname, profiletag, lang, data)
 	logrus.Debugf("Created pusher %d", session_id)
 	return err
 }
@@ -117,6 +119,7 @@ func (s *pushersStatements) SelectPushers(
 		err = rows.Scan(
 			&pusher.SessionID,
 			&pusher.PushKey,
+			&pusher.PushKeyTS,
 			&pusher.Kind,
 			&pusher.AppID,
 			&pusher.AppDisplayName,

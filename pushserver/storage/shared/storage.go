@@ -69,6 +69,7 @@ func (d *Database) CreatePusher(
 			ctx,
 			p.SessionID,
 			p.PushKey,
+			p.PushKeyTS,
 			p.Kind,
 			p.AppID,
 			p.AppDisplayName,

@@ -543,10 +543,11 @@ func (s *OutputRoomEventConsumer) localPushDevices(ctx context.Context, localpar
 			devicesByURL[url] = make(map[string][]*pushgateway.Device, 2)
 		}
 		devicesByURL[url][format] = append(devicesByURL[url][format], &pushgateway.Device{
-			AppID:   pusher.AppID,
-			Data:    data,
-			PushKey: pusher.PushKey,
-			Tweaks:  tweaks,
+			AppID:     pusher.AppID,
+			Data:      data,
+			PushKey:   pusher.PushKey,
+			PushKeyTS: pusher.PushKeyTS,
+			Tweaks:    tweaks,
 		})
 	}
 

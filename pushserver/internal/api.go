@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/matrix-org/dendrite/internal/pushrules"
 	"github.com/matrix-org/dendrite/pushserver/api"
@@ -13,6 +14,7 @@ import (
 	"github.com/matrix-org/dendrite/pushserver/storage/tables"
 	"github.com/matrix-org/dendrite/setup/config"
 	uapi "github.com/matrix-org/dendrite/userapi/api"
+	"github.com/matrix-org/gomatrixserverlib"
 	"github.com/matrix-org/util"
 	"github.com/sirupsen/logrus"
 )
@@ -84,6 +86,9 @@ func (a *PushserverInternalAPI) PerformPusherSet(ctx context.Context, req *api.P
 		if req.Pusher.Kind == "" {
 			return a.DB.RemovePusher(ctx, req.Pusher.AppID, req.Pusher.AppDisplayName, req.Localpart)
 		}
+	}
+	if req.Pusher.PushKeyTS == 0 {
+		req.Pusher.PushKeyTS = gomatrixserverlib.AsTimestamp(time.Now())
 	}
 	return a.DB.CreatePusher(ctx, req.Pusher, req.Localpart)
 }
