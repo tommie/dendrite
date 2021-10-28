@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/matrix-org/dendrite/internal/sqlutil"
+	"github.com/matrix-org/dendrite/pushserver/storage/postgres/deltas"
 	"github.com/matrix-org/dendrite/pushserver/storage/shared"
 	"github.com/matrix-org/dendrite/setup/config"
 )
@@ -30,6 +31,11 @@ func Open(dbProperties *config.DatabaseOptions) (*Database, error) {
 		return nil, err
 	}
 	if err = shared.CreatePushersTable(d.DB); err != nil {
+		return nil, err
+	}
+	m := sqlutil.NewMigrations()
+	deltas.LoadAddPusheyTSColumn(m)
+	if err := m.RunDeltas(d.DB, dbProperties); err != nil {
 		return nil, err
 	}
 	if err = d.Database.Prepare(); err != nil {

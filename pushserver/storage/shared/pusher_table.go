@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS pushserver_pushers (
 	app_display_name TEXT NOT NULL,
 	device_display_name TEXT NOT NULL,
 	pushkey TEXT NOT NULL,
-	pushkey_ts_ms BIGINT NOT NULL,
+	pushkey_ts_ms BIGINT NOT NULL DEFAULT 0,
 	lang TEXT NOT NULL,
 	data TEXT NOT NULL
 );
