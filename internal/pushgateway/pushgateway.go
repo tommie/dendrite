@@ -43,7 +43,7 @@ type Notification struct {
 
 type Counts struct {
 	MissedCalls int `json:"missed_calls,omitempty"`
-	Unread      int `json:"unread,omitempty"`
+	Unread      int `json:"unread"` // TODO: UNSPEC: the spec says zero must be omitted, but Sytest 61push/01message-pushed.pl requires it.
 }
 
 type Device struct {
