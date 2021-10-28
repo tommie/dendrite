@@ -7,6 +7,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/matrix-org/dendrite/internal"
 	"github.com/matrix-org/dendrite/internal/eventutil"
+	"github.com/matrix-org/dendrite/pushserver/producers"
 	"github.com/matrix-org/dendrite/pushserver/storage"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/setup/process"
@@ -16,10 +17,11 @@ import (
 )
 
 type OutputClientDataConsumer struct {
-	cfg        *config.PushServer
-	rsConsumer *internal.ContinualConsumer
-	db         storage.Database
-	userAPI    uapi.UserInternalAPI
+	cfg          *config.PushServer
+	rsConsumer   *internal.ContinualConsumer
+	db           storage.Database
+	userAPI      uapi.UserInternalAPI
+	syncProducer *producers.SyncAPI
 }
 
 func NewOutputClientDataConsumer(
@@ -28,6 +30,7 @@ func NewOutputClientDataConsumer(
 	kafkaConsumer sarama.Consumer,
 	store storage.Database,
 	userAPI uapi.UserInternalAPI,
+	syncProducer *producers.SyncAPI,
 ) *OutputClientDataConsumer {
 	consumer := internal.ContinualConsumer{
 		Process:        process,
@@ -37,10 +40,11 @@ func NewOutputClientDataConsumer(
 		PartitionStore: store,
 	}
 	s := &OutputClientDataConsumer{
-		cfg:        cfg,
-		rsConsumer: &consumer,
-		db:         store,
-		userAPI:    userAPI,
+		cfg:          cfg,
+		rsConsumer:   &consumer,
+		db:           store,
+		userAPI:      userAPI,
+		syncProducer: syncProducer,
 	}
 	consumer.ProcessMessage = s.onMessage
 	return s
@@ -134,6 +138,10 @@ func (s *OutputClientDataConsumer) onMessage(msg *sarama.ConsumerMessage) error 
 			"room_id":   event.RoomID,
 			"event_id":  data.EventID,
 		}).WithError(err).Errorf("pushserver clientapi consumer: DeleteNotificationsUpTo failed")
+	}
+
+	if err := s.syncProducer.GetAndSendNotificationData(ctx, userID, event.RoomID); err != nil {
+		return err
 	}
 
 	return nil

@@ -13,6 +13,7 @@ import (
 	"github.com/matrix-org/dendrite/internal/pushgateway"
 	"github.com/matrix-org/dendrite/internal/pushrules"
 	"github.com/matrix-org/dendrite/pushserver/api"
+	"github.com/matrix-org/dendrite/pushserver/producers"
 	"github.com/matrix-org/dendrite/pushserver/storage"
 	"github.com/matrix-org/dendrite/pushserver/storage/tables"
 	rsapi "github.com/matrix-org/dendrite/roomserver/api"
@@ -23,12 +24,13 @@ import (
 )
 
 type OutputRoomEventConsumer struct {
-	cfg        *config.PushServer
-	rsAPI      rsapi.RoomserverInternalAPI
-	psAPI      api.PushserverInternalAPI
-	pgClient   pushgateway.Client
-	rsConsumer *internal.ContinualConsumer
-	db         storage.Database
+	cfg          *config.PushServer
+	rsAPI        rsapi.RoomserverInternalAPI
+	psAPI        api.PushserverInternalAPI
+	pgClient     pushgateway.Client
+	rsConsumer   *internal.ContinualConsumer
+	db           storage.Database
+	syncProducer *producers.SyncAPI
 }
 
 func NewOutputRoomEventConsumer(
@@ -39,6 +41,7 @@ func NewOutputRoomEventConsumer(
 	pgClient pushgateway.Client,
 	psAPI api.PushserverInternalAPI,
 	rsAPI rsapi.RoomserverInternalAPI,
+	syncProducer *producers.SyncAPI,
 ) *OutputRoomEventConsumer {
 	consumer := internal.ContinualConsumer{
 		Process:        process,
@@ -48,12 +51,13 @@ func NewOutputRoomEventConsumer(
 		PartitionStore: store,
 	}
 	s := &OutputRoomEventConsumer{
-		cfg:        cfg,
-		rsConsumer: &consumer,
-		db:         store,
-		rsAPI:      rsAPI,
-		psAPI:      psAPI,
-		pgClient:   pgClient,
+		cfg:          cfg,
+		rsConsumer:   &consumer,
+		db:           store,
+		rsAPI:        rsAPI,
+		psAPI:        psAPI,
+		pgClient:     pgClient,
+		syncProducer: syncProducer,
 	}
 	consumer.ProcessMessage = s.onMessage
 	return s
@@ -332,6 +336,10 @@ func (s *OutputRoomEventConsumer) notifyLocal(ctx context.Context, event *gomatr
 		TS:         gomatrixserverlib.AsTimestamp(time.Now()),
 	}
 	if err := s.db.InsertNotification(ctx, mem.Localpart, event.EventID(), tweaks, n); err != nil {
+		return err
+	}
+
+	if err := s.syncProducer.GetAndSendNotificationData(ctx, mem.UserID, event.RoomID()); err != nil {
 		return err
 	}
 

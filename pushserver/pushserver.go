@@ -35,41 +35,43 @@ func NewInternalAPI(
 
 	consumer, _ := kafka.SetupConsumerProducer(&cfg.Matrix.Kafka)
 
-	pushserverDB, err := storage.Open(&cfg.Database)
+	db, err := storage.Open(&cfg.Database)
 	if err != nil {
 		logrus.WithError(err).Panicf("failed to connect to push server db")
 	}
 
 	_, producer := kafka.SetupConsumerProducer(&cfg.Matrix.Kafka)
-	syncProducer := &producers.SyncAPIProducer{
-		Producer: producer,
+	syncProducer := producers.NewSyncAPI(
+		db,
+		producer,
 		// TODO: user API should handle syncs for account data. Right now,
 		// it's handled by clientapi, and hence uses its topic. When user
 		// API handles it for all account data, we can remove it from
 		// here.
-		ClientDataTopic: cfg.Matrix.Kafka.TopicFor(config.TopicOutputClientData),
-	}
+		cfg.Matrix.Kafka.TopicFor(config.TopicOutputClientData),
+		cfg.Matrix.Kafka.TopicFor(config.TopicOutputNotificationData),
+	)
 
 	psAPI := internal.NewPushserverAPI(
-		cfg, pushserverDB, userAPI, syncProducer,
+		cfg, db, userAPI, syncProducer,
 	)
 
 	caConsumer := consumers.NewOutputClientDataConsumer(
-		base.ProcessContext, cfg, consumer, pushserverDB, userAPI,
+		base.ProcessContext, cfg, consumer, db, userAPI, syncProducer,
 	)
 	if err := caConsumer.Start(); err != nil {
 		logrus.WithError(err).Panic("failed to start push server clientapi consumer")
 	}
 
 	eduConsumer := consumers.NewOutputReceiptEventConsumer(
-		base.ProcessContext, cfg, consumer, pushserverDB,
+		base.ProcessContext, cfg, consumer, db, syncProducer,
 	)
 	if err := eduConsumer.Start(); err != nil {
 		logrus.WithError(err).Panic("failed to start push server EDU consumer")
 	}
 
 	rsConsumer := consumers.NewOutputRoomEventConsumer(
-		base.ProcessContext, cfg, consumer, pushserverDB, pgClient, psAPI, rsAPI,
+		base.ProcessContext, cfg, consumer, db, pgClient, psAPI, rsAPI, syncProducer,
 	)
 	if err := rsConsumer.Start(); err != nil {
 		logrus.WithError(err).Panic("failed to start push server room server consumer")

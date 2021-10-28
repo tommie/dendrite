@@ -6,10 +6,13 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Shopify/sarama"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/matrix-org/dendrite/internal/pushgateway"
 	"github.com/matrix-org/dendrite/internal/pushrules"
 	"github.com/matrix-org/dendrite/pushserver/api"
+	"github.com/matrix-org/dendrite/pushserver/producers"
 	"github.com/matrix-org/dendrite/pushserver/storage"
 	rsapi "github.com/matrix-org/dendrite/roomserver/api"
 	"github.com/matrix-org/dendrite/setup/config"
@@ -32,6 +35,7 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 	}
 	var rsAPI fakeRoomServerInternalAPI
 	var psAPI fakePushserverInternalAPI
+	var messageSender fakeMessageSender
 	var wg sync.WaitGroup
 	wg.Add(1)
 	pgClient := fakePushGatewayClient{
@@ -43,10 +47,11 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 				ServerName: serverName,
 			},
 		},
-		db:       db,
-		rsAPI:    &rsAPI,
-		psAPI:    &psAPI,
-		pgClient: &pgClient,
+		db:           db,
+		rsAPI:        &rsAPI,
+		psAPI:        &psAPI,
+		pgClient:     &pgClient,
+		syncProducer: producers.NewSyncAPI(db, &messageSender, "clientDataTopic", "notificationDataTopic"),
 	}
 
 	event, err := gomatrixserverlib.NewEventFromTrustedJSONWithEventID("$143273582443PhrSn:example.org", []byte(`{
@@ -106,6 +111,13 @@ func TestOutputRoomEventConsumer(t *testing.T) {
 		},
 	}}, pgClient.Reqs); diff != "" {
 		t.Errorf("pgClient.NotifyHTTP Reqs: +got -want:\n%s", diff)
+	}
+	if diff := cmp.Diff([]sarama.ProducerMessage{{
+		Topic: "notificationDataTopic",
+		Key:   sarama.StringEncoder("@alice:example.org"),
+		Value: sarama.ByteEncoder([]byte(`{"room_id":"!jEsUZKDJdhlrceRyVU:example.org","unread_highlight_count":0,"unread_notification_count":1}`)),
+	}}, messageSender.Messages, cmpopts.IgnoreUnexported(sarama.ProducerMessage{})); diff != "" {
+		t.Errorf("SendMessage Messages: +got -want:\n%s", diff)
 	}
 }
 
@@ -244,4 +256,13 @@ func mustParseHeaderedEventJSON(s string) *gomatrixserverlib.HeaderedEvent {
 		panic(err)
 	}
 	return &ev
+}
+
+type fakeMessageSender struct {
+	Messages []sarama.ProducerMessage
+}
+
+func (s *fakeMessageSender) SendMessage(msg *sarama.ProducerMessage) (partition int32, offset int64, err error) {
+	s.Messages = append(s.Messages, *msg)
+	return 0, 0, nil
 }

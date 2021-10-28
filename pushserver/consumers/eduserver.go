@@ -8,6 +8,7 @@ import (
 	"github.com/Shopify/sarama"
 	eduapi "github.com/matrix-org/dendrite/eduserver/api"
 	"github.com/matrix-org/dendrite/internal"
+	"github.com/matrix-org/dendrite/pushserver/producers"
 	"github.com/matrix-org/dendrite/pushserver/storage"
 	"github.com/matrix-org/dendrite/setup/config"
 	"github.com/matrix-org/dendrite/setup/process"
@@ -16,9 +17,10 @@ import (
 )
 
 type OutputReceiptEventConsumer struct {
-	cfg        *config.PushServer
-	rsConsumer *internal.ContinualConsumer
-	db         storage.Database
+	cfg          *config.PushServer
+	rsConsumer   *internal.ContinualConsumer
+	db           storage.Database
+	syncProducer *producers.SyncAPI
 }
 
 func NewOutputReceiptEventConsumer(
@@ -26,6 +28,7 @@ func NewOutputReceiptEventConsumer(
 	cfg *config.PushServer,
 	kafkaConsumer sarama.Consumer,
 	store storage.Database,
+	syncProducer *producers.SyncAPI,
 ) *OutputReceiptEventConsumer {
 	consumer := internal.ContinualConsumer{
 		Process:        process,
@@ -35,9 +38,10 @@ func NewOutputReceiptEventConsumer(
 		PartitionStore: store,
 	}
 	s := &OutputReceiptEventConsumer{
-		cfg:        cfg,
-		rsConsumer: &consumer,
-		db:         store,
+		cfg:          cfg,
+		rsConsumer:   &consumer,
+		db:           store,
+		syncProducer: syncProducer,
 	}
 	consumer.ProcessMessage = s.onMessage
 	return s
@@ -78,6 +82,10 @@ func (s *OutputReceiptEventConsumer) onMessage(msg *sarama.ConsumerMessage) erro
 			"room_id":   event.RoomID,
 			"event_id":  event.EventID,
 		}).WithError(err).Errorf("pushserver EDU consumer: %v", err)
+	}
+
+	if err := s.syncProducer.GetAndSendNotificationData(ctx, event.UserID, event.RoomID); err != nil {
+		return err
 	}
 
 	return nil
