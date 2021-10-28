@@ -34,9 +34,22 @@ type Notifications interface {
 type NotificationFilter uint32
 
 const (
+	// HighlightNotifications returns notifications that had a
+	// "highlight" tweak assigned to them from evaluating push rules.
 	HighlightNotifications NotificationFilter = 1 << iota
+
+	// NonHighlightNotifications returns notifications that don't
+	// match HighlightNotifications.
 	NonHighlightNotifications
 
-	NoNotifications  NotificationFilter = 0
-	AllNotifications NotificationFilter = (1 << 32) - 1
+	// NoNotifications is a filter to exclude all types of
+	// notifications. It's useful as a zero value, but isn't likely to
+	// be used in a call to Notifications.Select*.
+	NoNotifications NotificationFilter = 0
+
+	// AllNotifications is a filter to include all types of
+	// notifications in Notifications.Select*. Note that PostgreSQL
+	// balks if this doesn't fit in INTEGER, even though we use
+	// uint32.
+	AllNotifications NotificationFilter = (1 << 31) - 1
 )
